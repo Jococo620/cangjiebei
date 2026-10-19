@@ -1,0 +1,43 @@
+# ============================================
+# 鉴真智能体 (CangSight) - Python 依赖清单
+# Python >= 3.9
+# 安装: pip install -r requirements.txt
+# ============================================
+
+# ---- Web 框架 & 网关 ----
+# nexus/gateway/app.py — Flask 应用服务 & 静态文件托管
+Flask>=2.3.0
+# nexus/gateway/app.py — 跨域资源共享 (CORS)
+flask-cors>=4.0.0
+
+# ---- HTTP 请求 ----
+# 全局: LLM 适配器 / XDR 客户端 / Sympas MCP 同步 / CTF Agent 等 29+ 文件
+requests>=2.31.0
+# nexus/integrations/xdr/wazuh_client.py — 禁用自签证书 SSL 警告
+urllib3>=2.0.0
+
+# ---- 向量数据库 & 语义嵌入 (RAG 核心) ----
+# nexus/cang/rag_service.py, nexus/cang/security_rag.py — ChromaDB 持久化向量库
+chromadb>=0.5.0
+# nexus/cang/rag_service.py — Sentence-BERT 嵌入模型 (all-MiniLM-L6-v2)
+sentence-transformers>=2.2.0
+# nexus/cang/rag_service.py — 向量计算 & 余弦相似度
+numpy>=1.24.0
+# sentence-transformers ONNX 推理加速 (间接依赖)
+onnxruntime>=1.15.0
+
+# ---- 搜索排序 (混合检索) ----
+# nexus/cang/security_rag.py — BM25 关键词检索 + 向量语义检索融合
+rank-bm25>=0.2.2
+
+# ---- 数据验证 ----
+# nexus/core/plugin_registry.py — 工具/技能 JSON Schema 校验
+jsonschema>=4.19.0
+
+# ---- 加密 & 审计链 (EAT) ----
+# nexus/integrations/ecc/eat_recorder.py — Ed25519 数字签名 & 验证
+cryptography>=41.0.0
+
+# ---- 配置 & 环境 ----
+# nexus/core/task_intake.py — YAML 场景模板解析
+PyYAML>=6.0

@@ -1,0 +1,58 @@
+[
+  {
+    "id": "CWE-122",
+    "source": "MITRE-CWE",
+    "title": "CWE-122 堆缓冲区溢出",
+    "text": "当向堆分配缓冲区写入的数据超过其容量时发生堆溢出，常见于未校验长度的memcpy/strcpy。利用可导致堆元数据破坏与远程代码执行。",
+    "mitigation": "写入前强制校验dst容量>=src长度；使用带边界的memcpy_s/strncpy；启用ASLR/FORTIFY。"
+  },
+  {
+    "id": "CWE-416",
+    "source": "MITRE-CWE",
+    "title": "CWE-416 释放后使用",
+    "text": "对象释放后其指针仍被解引用，攻击者可通过堆风水重新占位，劫持控制流。",
+    "mitigation": "释放后立即置空指针；引入所有权/借用模型；使用AddressSanitizer检测。"
+  },
+  {
+    "id": "CWE-250",
+    "source": "MITRE-CWE",
+    "title": "CWE-250 以非必要特权执行",
+    "text": "进程以高于所需的权限运行，一旦被攻陷则横向移动与凭据窃取面扩大（如lsass转储）。",
+    "mitigation": "最小权限原则；及时降权；对敏感进程做EDR微隔离与凭据保护。"
+  },
+  {
+    "id": "CWE-78",
+    "source": "MITRE-CWE",
+    "title": "CWE-78 操作系统命令注入",
+    "text": "将未净化的外部输入拼接进shell命令，攻击者可注入任意命令。常见于os.system/subprocess(shell=True)。",
+    "mitigation": "避免shell=True；使用参数化数组调用；对输入做白名单校验与转义。"
+  },
+  {
+    "id": "ATTACK-T1078",
+    "source": "MITRE-ATT&CK",
+    "title": "ATT&CK T1078 有效账户",
+    "text": "攻击者使用合法凭据进行初始访问、持久化、提权与防御规避；内网横向移动常伴随异常登录与敏感资产访问。",
+    "mitigation": "多因素认证；异常登录检测；最小权限与会话审计。"
+  },
+  {
+    "id": "ATTACK-T1003",
+    "source": "MITRE-ATT&CK",
+    "title": "ATT&CK T1003 凭据访问",
+    "text": "攻击者获取系统凭据以维持访问和横向移动，包括LSASS转储、注册表查询、缓存凭据提取。",
+    "mitigation": "启用LSA保护；使用凭据管理器；实施最小权限原则。"
+  },
+  {
+    "id": "CVE-2024-3094",
+    "source": "CVE",
+    "title": "CVE-2024-3094 xz-utils后门漏洞",
+    "text": "xz-utils压缩工具中被植入恶意后门，攻击者可远程执行代码，影响SSH服务器等依赖xz-utils的系统。",
+    "mitigation": "降级xz-utils到安全版本；检查系统是否受影响；监控异常SSH连接。"
+  },
+  {
+    "id": "CVE-2021-44228",
+    "source": "CVE",
+    "title": "CVE-2021-44228 Log4j远程代码执行漏洞",
+    "text": "Apache Log4j存在JNDI注入漏洞，攻击者可通过构造恶意日志消息触发远程代码执行。",
+    "mitigation": "升级Log4j到安全版本；禁用JNDI功能；配置防火墙规则。"
+  }
+]

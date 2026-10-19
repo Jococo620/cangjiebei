@@ -1,0 +1,254 @@
+{
+  "security_events": [
+    {
+      "name": "SQL注入攻击事件",
+      "description": "系统检测到多次失败的登录尝试，来源IP为192.168.1.100，攻击者尝试通过SQL注入绕过认证。EDR显示tomcat进程异常启动了可疑子进程lsass_backup.exe。Syslog记录显示非工作时间有管理员账号从内网回环地址登录。",
+      "severity": "high",
+      "tags": ["sql注入", "认证绕过", "内部威胁"]
+    },
+    {
+      "name": "缓冲区溢出攻击事件",
+      "description": "WAF拦截了疑似缓冲区溢出攻击payload。目标主机10.0.0.5的EDR告警显示memcpy操作未做边界检查。进程堆栈显示恶意代码尝试覆盖堆栈返回地址。",
+      "severity": "critical",
+      "tags": ["缓冲区溢出", "CWE-122", "RCE"]
+    },
+    {
+      "name": "横向移动事件",
+      "description": "检测到域管理员账号在短时间内登录多个服务器。内网横向移动特征明显，涉及SMB协议异常访问。EDR发现可疑的PsExec执行记录。",
+      "severity": "high",
+      "tags": ["横向移动", "内部威胁", "ATT&CK T1021"]
+    },
+    {
+      "name": "数据外泄事件",
+      "description": "服务器172.16.0.20出现大量出站连接到境外IP地址。网络流量分析显示数据通过C2信道外泄。Syslog记录显示数据库敏感表被异常查询。",
+      "severity": "critical",
+      "tags": ["数据外泄", "C2通信", "ATT&CK T1041"]
+    }
+  ],
+  "vulnerable_code_samples": [
+    {
+      "name": "SQL注入漏洞代码",
+      "language": "python",
+      "code": "def login(username, password):\n    conn = sqlite3.connect('users.db')\n    cursor = conn.cursor()\n    query = f\"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'\"\n    cursor.execute(query)\n    result = cursor.fetchone()\n    return result is not None",
+      "expected_vulnerability": "CWE-89: SQL注入",
+      "description": "直接将用户输入拼接到SQL查询中，未做任何过滤"
+    },
+    {
+      "name": "缓冲区溢出漏洞代码",
+      "language": "c",
+      "code": "#include <string.h>\nvoid copy_data(char* input) {\n    char buffer[16];\n    strcpy(buffer, input);\n}\n\nint main() {\n    char user_input[256];\n    fgets(user_input, 256, stdin);\n    copy_data(user_input);\n    return 0;\n}",
+      "expected_vulnerability": "CWE-122: 堆缓冲区溢出",
+      "description": "strcpy没有检查输入长度，缓冲区只有16字节但输入可达256字节"
+    },
+    {
+      "name": "命令注入漏洞代码",
+      "language": "python",
+      "code": "import subprocess\n\ndef ping(host):\n    result = subprocess.run(f'ping -c 4 {host}', shell=True, capture_output=True)\n    return result.stdout.decode()",
+      "expected_vulnerability": "CWE-78: 命令注入",
+      "description": "使用shell=True执行命令，用户输入未做过滤"
+    },
+    {
+      "name": "XSS跨站脚本漏洞代码",
+      "language": "python",
+      "code": "from flask import Flask, request\n\napp = Flask(__name__)\n\n@app.route('/search')\ndef search():\n    query = request.args.get('q')\n    return f'<h1>搜索结果: {query}</h1>'",
+      "expected_vulnerability": "CWE-79: XSS跨站脚本",
+      "description": "用户输入直接输出到HTML页面，未做HTML编码"
+    },
+    {
+      "name": "文件路径遍历漏洞代码",
+      "language": "python",
+      "code": "def read_file(filename):\n    with open(f'/var/www/data/{filename}', 'r') as f:\n        return f.read()",
+      "expected_vulnerability": "CWE-22: 路径遍历",
+      "description": "用户输入直接拼接到文件路径中，可通过../../访问任意文件"
+    }
+  ],
+  "rag_queries": [
+    {
+      "name": "SQL注入漏洞查询",
+      "query": "SQL注入漏洞的攻击原理和防御方法是什么？",
+      "expected_topics": ["SQL注入", "CWE-89", "参数化查询"]
+    },
+    {
+      "name": "缓冲区溢出查询",
+      "query": "缓冲区溢出漏洞如何利用？有哪些防护措施？",
+      "expected_topics": ["缓冲区溢出", "CWE-122", "ASLR", "DEP"]
+    },
+    {
+      "name": "横向移动查询",
+      "query": "攻击者如何在内网进行横向移动？如何检测？",
+      "expected_topics": ["横向移动", "ATT&CK T1021", "SMB"]
+    },
+    {
+      "name": "数据外泄查询",
+      "query": "数据外泄有哪些常见手段？如何防护？",
+      "expected_topics": ["数据外泄", "C2通信", "ATT&CK T1041"]
+    }
+  ],
+  "chat_queries": [
+    {
+      "name": "安全知识问答",
+      "query": "什么是零日漏洞？为什么它特别危险？",
+      "type": "knowledge"
+    },
+    {
+      "name": "工具调用测试-代码扫描",
+      "query": "分析这段代码是否存在安全漏洞：def login(username, password): conn = sqlite3.connect('users.db'); cursor = conn.cursor(); query = f\"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'\"; cursor.execute(query); return cursor.fetchone()",
+      "type": "tool_code_scan"
+    },
+    {
+      "name": "工具调用测试-漏洞知识库",
+      "query": "查询SQL注入相关的漏洞知识",
+      "type": "tool_vkb_retrieve"
+    },
+    {
+      "name": "工具调用测试-CWE分类",
+      "query": "对SQL注入和XSS漏洞进行CWE分类",
+      "type": "tool_cwe_classifier"
+    },
+    {
+      "name": "综合分析测试",
+      "query": "分析一个安全事件：系统检测到多次失败的登录尝试，攻击者尝试通过SQL注入绕过认证，EDR显示tomcat进程异常启动了可疑子进程",
+      "type": "analysis"
+    }
+  ],
+  "ctf_targets": [
+    {
+      "name": "本地CTF演示靶场",
+      "url": "http://localhost:8888",
+      "description": "包含SQL注入、XSS、文件上传等漏洞的演示靶场",
+      "expected_vulnerabilities": ["SQL注入", "XSS", "文件上传"]
+    },
+    {
+      "name": "测试API端点",
+      "url": "http://localhost:8888/api/search?q=test",
+      "description": "含SQL注入漏洞的API端点",
+      "expected_vulnerabilities": ["SQL注入"]
+    },
+    {
+      "name": "测试SQL注入页面",
+      "url": "http://localhost:8888/test/sqli?user=admin",
+      "description": "专门的SQL注入测试页面",
+      "expected_vulnerabilities": ["SQL注入"]
+    }
+  ],
+  "cot_events": [
+    {
+      "name": "Tomcat RCE攻击事件",
+      "input": "NGAF检测到大量高频外联连接到未知IP，EDR发现tomcat进程(PID 2104)启动了名为lsass_backup.exe的可疑子进程，Syslog显示非工作时间有管理员从内网回环地址登录",
+      "expected_stages": {
+        "stage1": "流量分析：识别高频外联、C2通信特征",
+        "stage2": "端点关联：tomcat进程异常、可疑子进程",
+        "stage3": "身份溯源：管理员账号异常登录、凭证滥用",
+        "stage4": "威胁聚合：Tomcat RCE攻击、后门部署"
+      },
+      "expected_cwe": "CWE-250: Execution with Unnecessary Privileges"
+    },
+    {
+      "name": "缓冲区溢出利用事件",
+      "input": "WAF拦截了长度异常的HTTP请求，EDR告警显示memcpy操作未做边界检查，进程堆栈显示返回地址被覆盖，目标服务为Apache HTTP Server",
+      "expected_stages": {
+        "stage1": "流量分析：异常长度payload、攻击向量识别",
+        "stage2": "端点关联：memcpy边界检查缺失、堆栈溢出",
+        "stage3": "身份溯源：漏洞利用链、攻击来源追踪",
+        "stage4": "威胁聚合：Apache缓冲区溢出漏洞利用、RCE"
+      },
+      "expected_cwe": "CWE-122: Heap-based Buffer Overflow"
+    },
+    {
+      "name": "内网横向移动事件",
+      "input": "域控制器日志显示管理员账号在5分钟内登录了8台服务器，EDR发现PsExec执行记录，SMB协议出现异常访问模式",
+      "expected_stages": {
+        "stage1": "流量分析：SMB异常访问、高频登录",
+        "stage2": "端点关联：PsExec执行、横向移动特征",
+        "stage3": "身份溯源：域管理员凭证滥用、权限提升",
+        "stage4": "威胁聚合：横向移动攻击、内部威胁"
+      },
+      "expected_cwe": "CWE-287: Improper Authentication"
+    },
+    {
+      "name": "数据外泄事件",
+      "input": "服务器172.16.0.20出现大量出站连接到境外IP，网络流量显示数据通过DNS隧道外泄，数据库审计日志显示敏感表被异常查询",
+      "expected_stages": {
+        "stage1": "流量分析：境外外联、DNS隧道特征",
+        "stage2": "端点关联：数据库异常查询、敏感数据访问",
+        "stage3": "身份溯源：数据泄露路径、攻击者手法",
+        "stage4": "威胁聚合：数据外泄、C2通信"
+      },
+      "expected_cwe": "CWE-200: Exposure of Sensitive Information to an Unauthorized Actor"
+    }
+  ],
+  "cwe_queries": [
+    {
+      "name": "查询SQL注入CWE详情",
+      "query": "CWE-89",
+      "expected_info": {
+        "name": "SQL Injection",
+        "severity": 8.6,
+        "description": "将外部输入拼接进SQL语句而未使用参数化查询"
+      }
+    },
+    {
+      "name": "查询XSS跨站脚本CWE详情",
+      "query": "CWE-79",
+      "expected_info": {
+        "name": "Cross-site Scripting (XSS)",
+        "severity": 6.1,
+        "description": "未对输出到Web页面的数据进行HTML实体编码"
+      }
+    },
+    {
+      "name": "查询缓冲区溢出CWE详情",
+      "query": "CWE-122",
+      "expected_info": {
+        "name": "Heap-based Buffer Overflow",
+        "severity": 7.8,
+        "description": "堆上分配的缓冲区被溢出写入"
+      }
+    },
+    {
+      "name": "查询命令注入CWE详情",
+      "query": "CWE-78",
+      "expected_info": {
+        "name": "OS Command Injection",
+        "severity": 7.8,
+        "description": "未充分过滤外部输入即用于构造系统命令"
+      }
+    },
+    {
+      "name": "查询路径遍历CWE详情",
+      "query": "CWE-22",
+      "expected_info": {
+        "name": "Path Traversal",
+        "severity": 7.5,
+        "description": "使用外部输入构造路径名时未有效过滤 '../' 等特殊字符"
+      }
+    },
+    {
+      "name": "查询认证绕过CWE详情",
+      "query": "CWE-287",
+      "expected_info": {
+        "name": "Improper Authentication",
+        "severity": 9.8,
+        "description": "身份验证机制存在缺陷，允许未授权访问"
+      }
+    },
+    {
+      "name": "查询信息泄露CWE详情",
+      "query": "CWE-200",
+      "expected_info": {
+        "name": "Exposure of Sensitive Information",
+        "severity": 5.3,
+        "description": "敏感信息被泄露给未授权实体"
+      }
+    },
+    {
+      "name": "查询权限提升CWE详情",
+      "query": "CWE-250",
+      "expected_info": {
+        "name": "Execution with Unnecessary Privileges",
+        "severity": 7.8,
+        "description": "程序以高于必要的权限级别执行"
+      }
+    }
+  ]
+}

@@ -1,0 +1,964 @@
+import { api } from "./api-client.js";
+
+const TERMINAL_RUN_STATES = new Set([
+    "completed",
+    "failed",
+    "cancelled",
+    "rejected",
+    "expired",
+]);
+const MAX_CODE_BYTES = 1024 * 1024;
+
+function query(selector) {
+    return document.querySelector(selector);
+}
+
+function queryAll(selector) {
+    return [...document.querySelectorAll(selector)];
+}
+
+function textValue(value, fallback = "未返回数据") {
+    if (value === null || value === undefined || value === "") {
+        return fallback;
+    }
+    if (typeof value === "string") {
+        return value;
+    }
+    try {
+        return JSON.stringify(value, null, 2);
+    } catch {
+        return String(value);
+    }
+}
+
+function compactJson(value, limit = 6000) {
+    const text = textValue(value);
+    return text.length > limit ? `${text.slice(0, limit)}\n内容已截断` : text;
+}
+
+function setState(element, stateClass, text) {
+    element.classList.remove(
+        "state-ready",
+        "state-running",
+        "state-pending",
+        "state-completed",
+        "state-checking",
+        "state-failed",
+    );
+    element.classList.add(stateClass);
+    element.textContent = text;
+}
+
+function createResultState(titleText, detailText, className = "") {
+    const state = document.createElement("div");
+    state.className = `result-state${className ? ` ${className}` : ""}`;
+    const title = document.createElement("strong");
+    const detail = document.createElement("p");
+    title.textContent = titleText;
+    detail.textContent = detailText;
+    state.append(title, detail);
+    return state;
+}
+
+function createLoadingState(label) {
+    const state = document.createElement("div");
+    state.className = "result-state is-loading";
+    state.setAttribute("role", "status");
+    state.setAttribute("aria-live", "polite");
+    const title = document.createElement("strong");
+    title.textContent = label;
+    state.append(title);
+    for (let index = 0; index < 3; index += 1) {
+        const line = document.createElement("div");
+        line.className = "skeleton-line";
+        state.append(line);
+    }
+    return state;
+}
+
+function appendMessage(log, role, text, meta = "") {
+    const message = document.createElement("article");
+    message.className = `chat-message ${role}`;
+    
+    const avatar = document.createElement("div");
+    avatar.className = "message-avatar";
+    const avatarIcon = document.createElement("span");
+    
+    if (role === "user") {
+        avatarIcon.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>';
+    } else {
+        avatarIcon.innerHTML = '<svg viewBox="0 0 64 64" width="32" height="32"><defs><linearGradient id="bgA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0d2228"/><stop offset="1" stop-color="#1a3b40"/></linearGradient></defs><rect x="2" y="2" width="60" height="60" rx="14" ry="14" fill="url(#bgA)"/><rect x="37" y="6" width="15" height="12" rx="2" ry="2" fill="none" stroke="#f5a623" stroke-width="2"/><line x1="40" y1="11" x2="49" y2="11" stroke="#f5a623" stroke-width="1.5" stroke-linecap="round"/><line x1="40" y1="14" x2="48" y2="14" stroke="#f5a623" stroke-width="1.5" stroke-linecap="round"/><rect x="4" y="19" width="23" height="13" rx="6.5" ry="6.5" fill="none" stroke="#22c55e" stroke-width="2.5"/><rect x="20" y="29" width="23" height="13" rx="6.5" ry="6.5" fill="none" stroke="#22c55e" stroke-width="2.5"/><rect x="37" y="19" width="23" height="13" rx="6.5" ry="6.5" fill="none" stroke="#22c55e" stroke-width="2.5"/><circle cx="26" cy="25.5" r="3.8" fill="#22c55e"/><circle cx="38" cy="25.5" r="3.8" fill="#22c55e"/><path d="M21 36 L30 45 L45 28" stroke="#f5a623" stroke-width="4.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    }
+    avatar.append(avatarIcon);
+    
+    const content = document.createElement("div");
+    content.className = "message-content";
+    
+    const header = document.createElement("div");
+    header.className = "message-meta";
+    const sender = document.createElement("strong");
+    const context = document.createElement("span");
+    const body = document.createElement("p");
+    sender.textContent = role === "user" ? "操作员" : "CangSight";
+    context.textContent = meta || (role === "user" ? "当前会话" : "智能体回答");
+    body.textContent = text;
+    header.append(sender, context);
+    content.append(header, body);
+    
+    message.append(avatar, content);
+    log.append(message);
+    log.scrollTop = log.scrollHeight;
+    return { message, body };
+}
+
+function severityScore(item) {
+    const raw = item?.severity_score ?? item?.severity ?? 0;
+    const parsed = Number.parseFloat(raw);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function severityLabel(score) {
+    if (score >= 9) return "严重";
+    if (score >= 7) return "高危";
+    if (score >= 4) return "中危";
+    return "低危";
+}
+
+function wait(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+export function initCapabilityLab({ showToast, announce, onSelectLab }) {
+    const labSwitches = queryAll("[data-lab]");
+    const labPanels = queryAll("[data-lab-panel]");
+    const chatLog = query("#chat-log");
+    const chatForm = query("#chat-form");
+    const chatInput = query("#chat-input");
+    const chatType = query("#chat-type");
+    const chatSubmit = query("#chat-submit");
+    const chatToolResults = query("#chat-tool-results");
+
+    const threatForm = query("#threat-form");
+    const threatDescription = query("#threat-description");
+    const threatType = query("#threat-type");
+    const threatTimeRange = query("#threat-time-range");
+    const threatSubmit = query("#threat-submit");
+    const threatState = query("#threat-state");
+    const threatRunId = query("#threat-run-id");
+    const threatResult = query("#threat-result-content");
+
+    const codeForm = query("#code-form");
+    const codeFilename = query("#code-filename");
+    const codeFile = query("#code-file");
+    const codeFileLabel = query("#code-file-label");
+    const codeContent = query("#code-content");
+    const codeSubmit = query("#code-submit");
+    const codeState = query("#code-state");
+    const codeRisk = query("#code-risk");
+    const codeFindings = query("#code-findings");
+    const scanCritical = query("#scan-critical");
+    const scanHigh = query("#scan-high");
+    const scanMedium = query("#scan-medium");
+    const scanLow = query("#scan-low");
+
+    const cweForm = query("#cwe-form");
+    const cweQuery = query("#cwe-query");
+    const cweState = query("#cwe-state");
+    const cweCount = query("#cwe-count") || { textContent: "" };
+    const cweList = query("#cwe-list");
+    const cweDetail = query("#cwe-detail");
+
+    const ctfForm = query("#ctf-form");
+    const ctfChallenge = query("#ctf-challenge");
+    const ctfAuthorized = query("#ctf-authorized");
+    const ctfSubmit = query("#ctf-submit");
+    const ctfState = query("#ctf-state");
+    const ctfResult = query("#ctf-result-content");
+
+    const oodaForm = query("#ooda-form");
+    const oodaObjective = query("#ooda-objective");
+    const oodaRun = query("#ooda-run");
+    const oodaStep = query("#ooda-step");
+    const oodaReset = query("#ooda-reset");
+    const oodaState = query("#ooda-state");
+    const oodaCycleCount = query("#ooda-cycle-count");
+    const oodaReflexion = query("#ooda-reflexion");
+
+    let cweLoaded = false;
+    let analysisToken = 0;
+    let oodaCycles = 0;
+
+    function selectLab(name) {
+        labSwitches.forEach((button) => {
+            const active = button.dataset.lab === name;
+            button.classList.toggle("is-active", active);
+            button.setAttribute("aria-pressed", String(active));
+        });
+        labPanels.forEach((panel) => {
+            const active = panel.dataset.labPanel === name;
+            panel.hidden = !active;
+            panel.classList.toggle("is-active", active);
+        });
+        if (name === "cwe" && !cweLoaded) {
+            loadCwe();
+        }
+    }
+
+    function applyCaseContext(name, context = {}) {
+        if (name === "threat") {
+            threatDescription.value = context.description || threatDescription.value;
+            threatType.value = "comprehensive";
+            threatTimeRange.value = "1h";
+        } else if (name === "chat") {
+            chatInput.value = context.description || chatInput.value;
+            chatType.value = "security_event";
+        } else if (name === "cwe") {
+            cweQuery.value = context.query || "CWE-89";
+        } else if (name === "ooda") {
+            oodaObjective.value = context.objective
+                || "对 SQL 注入事件进行证据研判、HITL 授权、限时处置与复测闭环";
+        }
+    }
+
+    labSwitches.forEach((button) => {
+        button.addEventListener("click", () => {
+            const name = button.dataset.lab;
+            selectLab(name);
+            onSelectLab?.(name);
+        });
+    });
+
+    function renderToolResults(toolResults) {
+        chatToolResults.replaceChildren();
+        const title = document.createElement("strong");
+        title.textContent = "工具调用";
+        chatToolResults.append(title);
+
+        if (!Array.isArray(toolResults) || !toolResults.length) {
+            const copy = document.createElement("p");
+            copy.textContent = "本轮没有调用工具，回答由当前模型直接生成。";
+            chatToolResults.append(copy);
+            return;
+        }
+
+        const list = document.createElement("ol");
+        list.className = "tool-result-list";
+        toolResults.forEach((tool, index) => {
+            const item = document.createElement("li");
+            const name = tool?.tool_name || `工具 ${index + 1}`;
+            const status = tool?.status === "success" ? "成功" : "失败";
+            const summary = tool?.error || compactJson(tool?.result, 320);
+            item.textContent = `${name}：${status}\n${summary}`;
+            list.append(item);
+        });
+        chatToolResults.append(list);
+    }
+
+    chatForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const message = chatInput.value.trim();
+        if (!message) {
+            chatInput.focus();
+            showToast("请输入需要分析的安全问题", "error");
+            return;
+        }
+
+        appendMessage(chatLog, "user", message);
+        const pending = appendMessage(chatLog, "assistant", "正在分析请求并调用相关工具...", "处理中");
+        chatInput.value = "";
+        chatSubmit.disabled = true;
+        chatSubmit.textContent = "分析中";
+
+        let streamedText = "";
+        let toolsRendered = false;
+
+        const finish = () => {
+            chatSubmit.disabled = false;
+            chatSubmit.textContent = "发送分析";
+        };
+
+        const fail = (errorMessage) => {
+            pending.message.classList.add("error");
+            pending.body.textContent = `分析失败：${errorMessage}`;
+            pending.message.querySelector(".message-meta span").textContent = "请求失败";
+            showToast(errorMessage, "error");
+            finish();
+        };
+
+        api.agentChatStream(message, chatType.value, {
+            onMeta(meta) {
+                const statusText = [];
+                if (meta?.provider && meta?.model) {
+                    statusText.push(`${meta.provider} / ${meta.model}`);
+                }
+                if (meta?.has_tool_calls) {
+                    statusText.push("调用工具分析中");
+                    pending.body.textContent = "正在调用安全分析工具...";
+                }
+                if (statusText.length) {
+                    pending.message.querySelector(".message-meta span").textContent =
+                        statusText.join(" | ");
+                }
+            },
+            onTools(data) {
+                toolsRendered = true;
+                renderToolResults(data?.tool_results);
+                pending.body.textContent = "工具执行完成，正在生成分析报告...";
+                pending.message.querySelector(".message-meta span").textContent = "生成报告中";
+            },
+            onDelta(data) {
+                streamedText += data?.text || "";
+                pending.body.textContent = streamedText;
+            },
+            onDone(data) {
+                if (!streamedText) {
+                    pending.body.textContent = data?.answer
+                        || "分析已完成，但智能体未能生成文字回答。您可以重试或换一种方式描述问题。";
+                }
+                if (!toolsRendered) {
+                    renderToolResults(data?.tool_results);
+                }
+
+                const statusText = [];
+                if (data?.provider && data?.model) {
+                    statusText.push(`${data.provider} / ${data.model}`);
+                }
+                if (data?.tool_calls?.length) {
+                    statusText.push(`${data.tool_calls.length} 次工具调用`);
+                }
+                if (data?.tool_results?.length) {
+                    const successCount = data.tool_results.filter(t => t.status === "success").length;
+                    statusText.push(`${successCount}/${data.tool_results.length} 成功`);
+                }
+                pending.message.querySelector(".message-meta span").textContent =
+                    statusText.length ? statusText.join(" | ") : "分析完成";
+                announce("安全对话分析完成");
+                finish();
+            },
+            onError(data) {
+                fail(data?.message || "分析失败");
+            },
+        }).catch((error) => {
+            let errorMessage = error.message;
+            if (error.payload?.message) {
+                errorMessage = error.payload.message;
+            } else if (error.payload?.error) {
+                errorMessage = error.payload.error;
+            }
+            fail(errorMessage);
+        });
+    });
+
+    async function pollRun(runId, token) {
+        const started = Date.now();
+        while (Date.now() - started < 90000) {
+            if (token !== analysisToken) {
+                throw new Error("分析任务已被新的请求替代");
+            }
+            const run = await api.run(runId);
+            const runState = run.status === "queued"
+                ? "排队中"
+                : run.status === "running"
+                    ? "分析中"
+                    : run.status === "rejected"
+                        ? "已拒绝"
+                        : run.status === "expired"
+                            ? "已过期"
+                            : run.status;
+            setState(
+                threatState,
+                ["failed", "cancelled", "rejected", "expired"].includes(run.status)
+                    ? "state-failed"
+                    : "state-running",
+                runState,
+            );
+            if (TERMINAL_RUN_STATES.has(run.status)) {
+                return run;
+            }
+            await wait(1100);
+        }
+        throw new Error("分析运行超过 90 秒，请到审计日志查看后续状态");
+    }
+
+    function renderThreatResult(run) {
+        threatResult.className = "result-state";
+        threatResult.replaceChildren();
+        if (run.status !== "completed") {
+            const terminalCopy = {
+                rejected: "分析请求已拒绝",
+                expired: "分析请求已过期",
+                failed: "分析执行失败",
+                cancelled: "分析已取消",
+            };
+            threatResult.append(createResultState(
+                terminalCopy[run.status] || "分析未完成",
+                run.error || `运行状态为 ${run.status}`,
+            ));
+            return;
+        }
+
+        const result = run.result || {};
+        const output = document.createElement("div");
+        output.className = "analysis-output";
+        const title = document.createElement("h4");
+        const conclusion = document.createElement("p");
+        const raw = document.createElement("pre");
+        raw.className = "raw-result";
+        title.textContent = "智能体研判";
+        conclusion.textContent = result.conclusion
+            || result.enhanced_conclusion
+            || result.summary
+            || "运行已经完成，请查看原始结果。";
+        raw.textContent = compactJson(result);
+        output.append(title, conclusion, raw);
+        threatResult.append(output);
+    }
+
+    threatForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const description = threatDescription.value.trim();
+        if (!description) {
+            threatDescription.focus();
+            showToast("请先输入安全事件描述", "error");
+            return;
+        }
+
+        const token = ++analysisToken;
+        threatSubmit.disabled = true;
+        threatSubmit.textContent = "正在创建";
+        setState(threatState, "state-running", "正在创建");
+        threatResult.replaceChildren(createLoadingState("正在创建智能体运行"));
+
+        try {
+            const created = await api.createRun({
+                team_profile: "cangsight_agent",
+                run_id: `analysis-${Date.now()}`,
+                payload: {
+                    action: "react",
+                    security_event: {
+                        description,
+                        analysis_type: threatType.value,
+                        time_range: threatTimeRange.value,
+                        source: "capability_lab",
+                    },
+                },
+            });
+            threatRunId.textContent = created.run_id;
+            threatSubmit.textContent = "分析中";
+            const run = await pollRun(created.run_id, token);
+            renderThreatResult(run);
+            setState(
+                threatState,
+                run.status === "completed" ? "state-completed" : "state-failed",
+                run.status === "completed" ? "分析完成" : "分析失败",
+            );
+            announce(`威胁分析${run.status === "completed" ? "完成" : "失败"}`);
+        } catch (error) {
+            setState(threatState, "state-failed", "分析失败");
+            threatResult.replaceChildren(createResultState("分析失败", error.message));
+            showToast(error.message, "error");
+        } finally {
+            threatSubmit.disabled = false;
+            threatSubmit.textContent = "创建分析任务";
+        }
+    });
+
+    codeFile.addEventListener("change", async () => {
+        const file = codeFile.files?.[0];
+        if (!file) return;
+        if (file.size > MAX_CODE_BYTES) {
+            codeFile.value = "";
+            showToast("文件超过 1 MB，请缩小后再扫描", "error");
+            return;
+        }
+        try {
+            codeContent.value = await file.text();
+            codeFilename.value = file.name;
+            codeFileLabel.textContent = `${file.name}，${Math.max(1, Math.round(file.size / 1024))} KB`;
+            announce("本地代码文件已经读取");
+        } catch {
+            showToast("无法读取所选文件", "error");
+        }
+    });
+
+    function setScanCounts(ranking) {
+        const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+        ranking.forEach((item) => {
+            const score = severityScore(item);
+            if (score >= 9) counts.critical += 1;
+            else if (score >= 7) counts.high += 1;
+            else if (score >= 4) counts.medium += 1;
+            else counts.low += 1;
+        });
+        scanCritical.textContent = String(counts.critical);
+        scanHigh.textContent = String(counts.high);
+        scanMedium.textContent = String(counts.medium);
+        scanLow.textContent = String(counts.low);
+    }
+
+    function renderCodeResult(data) {
+        const ranking = Array.isArray(data?.sbfl?.ranking) ? data.sbfl.ranking : [];
+        setScanCounts(ranking);
+        codeFindings.replaceChildren();
+        codeRisk.textContent = data?.composite_risk === undefined
+            ? "未返回综合风险"
+            : `综合风险 ${textValue(data.composite_risk)}`;
+
+        if (!ranking.length) {
+            codeFindings.append(createResultState(
+                "未发现规则命中",
+                data?.recommendation || "本地分析器没有返回漏洞排序。仍建议结合测试与人工复核。",
+            ));
+            return;
+        }
+
+        ranking.slice(0, 50).forEach((finding) => {
+            const item = document.createElement("article");
+            item.className = "finding-item";
+            const body = document.createElement("div");
+            const title = document.createElement("h4");
+            const detail = document.createElement("p");
+            const level = document.createElement("span");
+            const score = severityScore(finding);
+            title.textContent = `${finding.cwe || "CWE 未分类"}：${finding.name || "安全发现"}`;
+            detail.textContent = finding.line
+                ? `位置：第 ${finding.line} 行`
+                : "位置：分析器未返回具体行号";
+            level.className = "finding-severity";
+            level.textContent = `${severityLabel(score)} ${score || ""}`.trim();
+            body.append(title, detail);
+            item.append(body, level);
+            codeFindings.append(item);
+        });
+
+        if (Array.isArray(data?.slice?.taint_traces) && data.slice.taint_traces.length) {
+            const sliceBlock = document.createElement("div");
+            sliceBlock.className = "slice-result";
+            const sliceTitle = document.createElement("h4");
+            sliceTitle.textContent = "程序切片（数据流 / 污点追踪）";
+            sliceBlock.append(sliceTitle);
+            data.slice.taint_traces.forEach((trace) => {
+                const row = document.createElement("div");
+                row.className = "slice-row";
+                const src = trace?.source?.line;
+                const snk = trace?.sink?.line;
+                const path = (trace?.path || [])
+                    .map((p) => p?.line)
+                    .filter((n) => n != null);
+                const cwe = trace?.cwe_type || "CWE";
+                const pathText = path.length ? `（路径 ${path.join(" → ")}）` : "";
+                row.textContent = `${cwe}：第 ${src ?? "?"} 行 → 第 ${snk ?? "?"} 行${pathText}`;
+                sliceBlock.append(row);
+            });
+            if (data.slice.engine) {
+                const engineRow = document.createElement("div");
+                engineRow.className = "slice-row";
+                engineRow.textContent = `分析引擎：${data.slice.engine}`;
+                sliceBlock.append(engineRow);
+            }
+            codeFindings.append(sliceBlock);
+        }
+
+        if (data?.recommendation) {
+            const recommendation = document.createElement("div");
+            recommendation.className = "recommendation";
+            recommendation.textContent = `建议：${textValue(data.recommendation)}`;
+            codeFindings.append(recommendation);
+        }
+    }
+
+    codeForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const content = codeContent.value;
+        const filename = codeFilename.value.trim() || "sample.py";
+        if (!content.trim()) {
+            codeContent.focus();
+            showToast("请上传文件或粘贴代码", "error");
+            return;
+        }
+        if (new Blob([content]).size > MAX_CODE_BYTES) {
+            showToast("代码内容超过 1 MB，请缩小后再扫描", "error");
+            return;
+        }
+
+        codeSubmit.disabled = true;
+        codeSubmit.textContent = "扫描中";
+        setState(codeState, "state-running", "扫描中");
+        codeFindings.replaceChildren(createLoadingState("正在执行本地代码分析"));
+
+        try {
+            const data = await api.analyzeCode(content, filename);
+            renderCodeResult(data);
+            setState(codeState, "state-completed", "扫描完成");
+            announce("代码扫描完成");
+        } catch (error) {
+            setState(codeState, "state-failed", "扫描失败");
+            codeFindings.replaceChildren(createResultState("扫描失败", error.message));
+            showToast(error.message, "error");
+        } finally {
+            codeSubmit.disabled = false;
+            codeSubmit.textContent = "开始扫描";
+        }
+    });
+
+    async function showCweDetail(cweId, sourceButton) {
+        cweList.querySelectorAll(".cwe-row").forEach((button) => {
+            button.classList.toggle("is-selected", button === sourceButton);
+        });
+        cweDetail.replaceChildren(createLoadingState("正在读取 CWE 详情"));
+        try {
+            const item = await api.cweDetail(cweId);
+            cweDetail.replaceChildren();
+            const kicker = document.createElement("span");
+            const title = document.createElement("h3");
+            const description = document.createElement("p");
+            const details = document.createElement("dl");
+            const score = severityScore(item);
+            kicker.className = "summary-kicker";
+            kicker.textContent = `${cweId} / ${severityLabel(score)}`;
+            title.textContent = item?.name || item?.cwe_name || cweId;
+            description.textContent = item?.description || "暂无描述";
+
+            const riskGroup = document.createElement("div");
+            const riskTerm = document.createElement("dt");
+            const riskValue = document.createElement("dd");
+            riskTerm.textContent = "严重度";
+            riskValue.textContent = score ? `${severityLabel(score)}，${score}/10` : "知识库未提供评分";
+            riskGroup.append(riskTerm, riskValue);
+
+            const mitigationGroup = document.createElement("div");
+            const mitigationTerm = document.createElement("dt");
+            const mitigationValue = document.createElement("dd");
+            mitigationTerm.textContent = "修复建议";
+            mitigationValue.textContent = item?.mitigation || "暂无修复建议";
+            mitigationGroup.append(mitigationTerm, mitigationValue);
+
+            details.append(riskGroup, mitigationGroup);
+            cweDetail.append(kicker, title, description, details);
+        } catch (error) {
+            cweDetail.replaceChildren(createResultState("无法读取条目", error.message));
+        }
+    }
+
+    function renderCweList(items) {
+        cweList.replaceChildren();
+        cweCount.textContent = `${items.length} 条`;
+        if (!items.length) {
+            cweList.append(createResultState("没有匹配条目", "请更换关键词或使用 CWE 编号。"));
+            return;
+        }
+
+        items.forEach((item) => {
+            const id = item?.cwe_id || item?.id || "CWE-UNKNOWN";
+            const row = document.createElement("button");
+            const idText = document.createElement("span");
+            const name = document.createElement("strong");
+            const level = document.createElement("span");
+            row.className = "cwe-row";
+            row.type = "button";
+            idText.textContent = id;
+            name.textContent = item?.name || item?.cwe_name || "未命名漏洞";
+            level.className = "cwe-level";
+            level.textContent = severityLabel(severityScore(item));
+            row.append(idText, name, level);
+            row.addEventListener("click", () => showCweDetail(id, row));
+            cweList.append(row);
+        });
+    }
+
+    async function loadCwe(pattern = "") {
+        setState(cweState, "state-checking", "加载中");
+        cweList.replaceChildren(createLoadingState("正在读取本地 CWE 知识库"));
+        try {
+            const data = await api.cweSearch(pattern);
+            const items = Array.isArray(data) ? data : [];
+            renderCweList(items);
+            setState(cweState, "state-ready", "已加载");
+            cweLoaded = true;
+            if (items.length) {
+                const first = cweList.querySelector(".cwe-row");
+                first?.click();
+            }
+        } catch (error) {
+            setState(cweState, "state-failed", "加载失败");
+            cweList.replaceChildren(createResultState("知识库加载失败", error.message));
+            showToast(error.message, "error");
+        }
+    }
+
+    cweForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        loadCwe(cweQuery.value.trim());
+    });
+
+    ctfAuthorized.addEventListener("change", () => {
+        ctfSubmit.disabled = !ctfAuthorized.checked;
+        setState(
+            ctfState,
+            ctfAuthorized.checked ? "state-ready" : "state-pending",
+            ctfAuthorized.checked ? "授权已确认" : "需要授权确认",
+        );
+    });
+
+    ctfForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const challenge = ctfChallenge.value.trim();
+        if (!ctfAuthorized.checked) {
+            ctfAuthorized.focus();
+            showToast("请先确认目标已经获得授权", "error");
+            return;
+        }
+        if (!challenge) {
+            ctfChallenge.focus();
+            showToast("请输入 CTF 题目或授权靶场描述", "error");
+            return;
+        }
+
+        ctfSubmit.disabled = true;
+        ctfSubmit.textContent = "分析中";
+        setState(ctfState, "state-running", "分析中");
+
+        const isUrl = /^https?:\/\//i.test(challenge);
+        ctfResult.className = "result-state";
+        ctfResult.replaceChildren();
+        const timeline = document.createElement("div");
+        timeline.className = "ctf-timeline";
+        const header = document.createElement("h4");
+        header.textContent = isUrl ? "CTF 自主攻击时间线" : "CTF 题目分析";
+        timeline.append(header);
+        const stepsContainer = document.createElement("div");
+        stepsContainer.className = "ctf-steps";
+        timeline.append(stepsContainer);
+        ctfResult.append(timeline);
+
+        const token = Symbol("ctf");
+
+        function addStep(icon, label, detail) {
+            const step = document.createElement("div");
+            step.className = "ctf-step";
+            const iconEl = document.createElement("span");
+            iconEl.className = "ctf-step-icon";
+            iconEl.textContent = icon;
+            const labelEl = document.createElement("span");
+            labelEl.className = "ctf-step-label";
+            labelEl.textContent = label;
+            step.append(iconEl, labelEl);
+            if (detail) {
+                const detailEl = document.createElement("div");
+                detailEl.className = "ctf-step-detail";
+                detailEl.textContent = detail;
+                step.append(detailEl);
+            }
+            stepsContainer.append(step);
+            stepsContainer.scrollTop = stepsContainer.scrollHeight;
+        }
+
+        function addFlagBadge(flags) {
+            if (!flags || flags.length === 0) return;
+            const badge = document.createElement("div");
+            badge.className = "ctf-flag-found";
+            badge.textContent = `🏆 Flag: ${flags.join(", ")}`;
+            stepsContainer.append(badge);
+        }
+
+        try {
+            const created = await api.createRun({
+                team_profile: "ctf_agent",
+                run_id: `ctf-${Date.now()}`,
+                payload: isUrl
+                    ? { target_url: challenge }
+                    : { challenge_description: challenge },
+            });
+
+            const runId = created.run_id;
+            addStep("🚀", "任务已创建", `Run ID: ${runId}`);
+
+            const evtSource = new EventSource(`/agents/runs/${encodeURIComponent(runId)}/events`);
+            let completed = false;
+
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    evtSource.close();
+                    reject(new Error("CTF 分析超过 120 秒"));
+                }, 120000);
+
+                evtSource.addEventListener("connected", () => {
+                    addStep("📡", "已连接到事件流");
+                });
+
+                evtSource.addEventListener("ctf_mission_started", (e) => {
+                    const d = JSON.parse(e.data);
+                    addStep("🎯", "任务启动", `目标: ${d.target_url || challenge}`);
+                });
+
+                evtSource.addEventListener("phase_start", (e) => {
+                    const d = JSON.parse(e.data);
+                    addStep("📍", `阶段: ${d.phase}`, d.description || "");
+                });
+
+                evtSource.addEventListener("tool_call", (e) => {
+                    const d = JSON.parse(e.data);
+                    const toolName = d.tool || "";
+                    const action = d.action || "";
+                    const icons = {
+                        port_scan: "🔍", dir_brute: "📂", http_request: "🌐",
+                        sql_inject: "💉", xss_test: "⚡", upload_test: "📤",
+                        exploit_sqli: "🔨", find_flag: "🚩", sensitive_files: "🔑",
+                        lfi_rfi_test: "📄", command_inject: "💻", ssrf_test: "🔄",
+                        vkb_retrieve: "📚", cwe_classifier: "🏷️", sbfl_rank: "📊",
+                        uafr_report: "📋",
+                    };
+                    addStep(icons[toolName] || "🔧", `${toolName}: ${action}`);
+                });
+
+                evtSource.addEventListener("llm_decision", (e) => {
+                    const d = JSON.parse(e.data);
+                    addStep("🧠", `LLM决策 #${d.step}`, `${d.action || "等待"} - ${d.reasoning || ""}`);
+                });
+
+                evtSource.addEventListener("vulnerability_found", (e) => {
+                    const d = JSON.parse(e.data);
+                    addStep("⚠️", `发现漏洞: ${d.type}`, d.url || "");
+                });
+
+                evtSource.addEventListener("flag_found", (e) => {
+                    const d = JSON.parse(e.data);
+                    addFlagBadge(d.flags);
+                });
+
+                evtSource.addEventListener("ctf_mission_completed", (e) => {
+                    const d = JSON.parse(e.data);
+                    completed = true;
+                    clearTimeout(timeout);
+                    evtSource.close();
+                    addStep("✅", "任务完成", `阶段: ${d.phase || "completed"}, Flag: ${(d.flags_found || []).length}个`);
+                    resolve(d);
+                });
+
+                evtSource.addEventListener("run_failed", (e) => {
+                    const d = JSON.parse(e.data);
+                    clearTimeout(timeout);
+                    evtSource.close();
+                    reject(new Error(d.error || "CTF 任务执行失败"));
+                });
+
+                evtSource.addEventListener("run_completed", (e) => {
+                    clearTimeout(timeout);
+                    evtSource.close();
+                    if (!completed) {
+                        resolve({});
+                    }
+                });
+
+                evtSource.onerror = () => {
+                    clearTimeout(timeout);
+                    evtSource.close();
+                    if (!completed) {
+                        reject(new Error("事件流连接中断"));
+                    }
+                };
+            });
+
+            const run = await api.run(runId);
+            if (run.result) {
+                const result = typeof run.result === "string" ? JSON.parse(run.result) : run.result;
+                if (result.vulnerabilities && result.vulnerabilities.length > 0) {
+                    addStep("📊", `发现 ${result.vulnerabilities.length} 个漏洞`);
+                }
+                if (result.flags_found && result.flags_found.length > 0) {
+                    addFlagBadge(result.flags_found);
+                }
+                if (result.tool_execution_trace) {
+                    addStep("📋", `工具调用总计: ${result.tool_execution_trace.length} 次`);
+                }
+            }
+
+            setState(ctfState, "state-completed", "分析完成");
+            announce("CTF 分析完成");
+        } catch (error) {
+            ctfResult.append(createResultState("CTF 分析失败", error.message));
+            setState(ctfState, "state-failed", "分析失败");
+            showToast(error.message, "error");
+        } finally {
+            ctfSubmit.disabled = !ctfAuthorized.checked;
+            ctfSubmit.textContent = "开始 CTF 分析";
+        }
+    });
+
+    function resetOoda() {
+        oodaCycles = 0;
+        oodaCycleCount.textContent = "0";
+        oodaReflexion.textContent = "完成循环后显示策略修正与下一轮建议。";
+        ["observe", "orient", "decide", "act"].forEach((stage) => {
+            const panel = query(`[data-ooda-stage="${stage}"]`);
+            panel.classList.remove("is-running", "is-complete");
+            query(`#ooda-${stage}`).textContent = "等待执行";
+        });
+        setState(oodaState, "state-ready", "等待目标");
+    }
+
+    function renderOodaCycle(cycle) {
+        ["observe", "orient", "decide", "act"].forEach((stage) => {
+            const panel = query(`[data-ooda-stage="${stage}"]`);
+            panel.classList.remove("is-running");
+            panel.classList.add("is-complete");
+            query(`#ooda-${stage}`).textContent = textValue(cycle?.[stage], "本轮没有返回该阶段内容");
+        });
+        oodaReflexion.textContent = textValue(
+            cycle?.reflexion,
+            "本轮没有返回反思内容。",
+        );
+    }
+
+    async function executeOoda(mode) {
+        const objective = oodaObjective.value.trim();
+        if (!objective) {
+            oodaObjective.focus();
+            showToast("请输入 OODA 任务目标", "error");
+            return;
+        }
+
+        oodaRun.disabled = true;
+        oodaStep.disabled = true;
+        setState(oodaState, "state-running", mode === "step" ? "单步执行中" : "循环执行中");
+        queryAll("[data-ooda-stage]").forEach((panel) => {
+            panel.classList.remove("is-complete");
+            panel.classList.add("is-running");
+        });
+
+        try {
+            const data = mode === "step"
+                ? await api.stepOoda(objective)
+                : await api.runOoda(objective);
+            const cycles = Array.isArray(data?.cycles) ? data.cycles : [];
+            if (!cycles.length) {
+                throw new Error("OODA 服务没有返回循环结果");
+            }
+            renderOodaCycle(cycles[cycles.length - 1]);
+            oodaCycles += mode === "step" ? 1 : cycles.length;
+            oodaCycleCount.textContent = String(oodaCycles);
+            setState(oodaState, "state-completed", "执行完成");
+            announce("OODA 决策循环执行完成");
+        } catch (error) {
+            queryAll("[data-ooda-stage]").forEach((panel) => {
+                panel.classList.remove("is-running");
+            });
+            setState(oodaState, "state-failed", "执行失败");
+            oodaReflexion.textContent = error.message;
+            showToast(error.message, "error");
+        } finally {
+            oodaRun.disabled = false;
+            oodaStep.disabled = false;
+        }
+    }
+
+    oodaForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        executeOoda("full");
+    });
+    oodaStep.addEventListener("click", () => executeOoda("step"));
+    oodaReset.addEventListener("click", resetOoda);
+
+    return { selectLab, applyCaseContext };
+}
+

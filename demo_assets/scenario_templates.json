@@ -1,0 +1,3882 @@
+{
+  "sqli": {
+    "case": {
+      "title": "SQL 注入攻击闭环",
+      "summary": "教学商城订单接口检测到布尔盲注特征，等待开始样例回放。",
+      "risk": "高风险",
+      "riskClass": "risk-high",
+      "topologyTitle": "SQL 注入攻击与处置证据拓扑",
+      "topologyDesc": "展示攻击源、Web 应用、数据库、XDR、AI 智能体、HITL 审批、封禁策略和审计证据之间的状态路径。",
+      "topologyLabels": {
+        "nodes": {
+          "attacker": {
+            "label": "攻击源 IP",
+            "value": "203.0.113.24"
+          },
+          "web": {
+            "label": "教学商城 Web",
+            "value": "/api/orders"
+          },
+          "database": {
+            "label": "订单数据库",
+            "value": "核心资产"
+          },
+          "xdr": {
+            "label": "检测 / XDR",
+            "value": "规则 + 流量证据"
+          },
+          "policy": {
+            "label": "临时封禁策略",
+            "value": "15 分钟，可回滚"
+          },
+          "ai": {
+            "label": "AI 安全智能体",
+            "value": "证据约束研判"
+          },
+          "hitl": {
+            "label": "HITL 审批",
+            "value": "保留人类控制权"
+          },
+          "audit": {
+            "label": "审计证据",
+            "value": "EAT 决策回执"
+          }
+        },
+        "edges": {
+          "telemetry": "遥测",
+          "evidence": "证据",
+          "recommendation": "建议",
+          "approval": "批准",
+          "verification": "复测",
+          "audit": "回执",
+          "attack-entry": "恶意请求",
+          "asset-path": "查询链路",
+          "enforcement": "限时封禁"
+        }
+      }
+    },
+    "stages": [
+      {
+        "status": "ready",
+        "summary": "系统处于正常基线，等待开始回放。",
+        "title": "未发现异常",
+        "detail": "请求速率和数据库响应均处于基线范围。",
+        "confidence": "基线",
+        "topology": "基线正常，尚未检测到攻击",
+        "evidence": [
+          [
+            "等待攻击样本",
+            "pending"
+          ],
+          [
+            "等待关联",
+            "pending"
+          ],
+          [
+            "等待确认",
+            "pending"
+          ],
+          [
+            "等待 RAG",
+            "pending"
+          ]
+        ],
+        "progressLabel": "正常运行",
+        "actions": [
+          {
+            "type": "thought",
+            "name": "基线监控",
+            "detail": "请求速率与数据库响应均处于基线，持续监测无异常"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "XDR 检测到包含布尔盲注特征的异常订单查询。",
+        "title": "发现 SQL 注入攻击",
+        "detail": "请求载荷命中 SQL 注入规则，攻击源为脱敏保留地址 203.0.113.24。",
+        "confidence": "72%",
+        "topology": "恶意请求已到达 Web 应用，检测节点产生告警",
+        "evidence": [
+          [
+            "' OR 1=1 --",
+            "active"
+          ],
+          [
+            "响应时延 +824 ms",
+            "active"
+          ],
+          [
+            "订单 API",
+            "active"
+          ],
+          [
+            "等待 RAG",
+            "pending"
+          ]
+        ],
+        "progressLabel": "发现注入",
+        "actions": [
+          {
+            "type": "thought",
+            "name": "研判思考",
+            "detail": "检测到异常订单查询，载荷疑似布尔盲注"
+          },
+          {
+            "type": "tool",
+            "name": "XDR 规则引擎",
+            "detail": "命中 SQL 注入规则，响应时延 +824ms，攻击源 203.0.113.24"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "请求载荷、响应时延、资产角色和数据库审计片段已被关联。",
+        "title": "四类证据指向同一攻击链",
+        "detail": "XDR 遥测与数据库只读审计记录在同一时间窗内吻合，核心资产尚未发现数据写入。",
+        "confidence": "89%",
+        "topology": "攻击路径与资产证据完成关联，证据送达 AI 智能体",
+        "evidence": [
+          [
+            "' OR 1=1 --",
+            "complete"
+          ],
+          [
+            "响应时延 +824 ms",
+            "complete"
+          ],
+          [
+            "核心资产受探测",
+            "complete"
+          ],
+          [
+            "等待 RAG",
+            "active"
+          ]
+        ],
+        "progressLabel": "汇聚证据",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "RAG 检索",
+            "detail": "检索 SQL 注入处置基线，锚定知识证据"
+          },
+          {
+            "type": "rag",
+            "name": "CWE-89",
+            "detail": "命中 SQL 注入（CWE-89）处置基线 3 条"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "AI 结合直接证据与 RAG 基线，判定为高置信 SQL 注入尝试。",
+        "title": "高风险，建议限时封禁",
+        "detail": "建议封禁源 IP 15 分钟并立即复测。证据未支持永久封禁或隔离业务主机。",
+        "confidence": "94%",
+        "topology": "AI 已形成可解释建议，尚未触发任何处置",
+        "evidence": [
+          [
+            "' OR 1=1 --",
+            "complete"
+          ],
+          [
+            "响应时延 +824 ms",
+            "complete"
+          ],
+          [
+            "核心资产受探测",
+            "complete"
+          ],
+          [
+            "CWE-89 处置基线",
+            "complete"
+          ]
+        ],
+        "progressLabel": "AI 研判",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "SymPas code_scan",
+            "detail": "静态扫描注入载荷，确认危险点位于 /api/orders"
+          },
+          {
+            "type": "rag",
+            "name": "CWE-89",
+            "detail": "引用 CWE-89 处置基线，建议限时封禁"
+          },
+          {
+            "type": "cot",
+            "name": "可验证推理",
+            "detail": "注入特征明确 + 响应差异 +824ms + 无数据写入 → 高置信"
+          }
+        ]
+      },
+      {
+        "status": "awaiting-approval",
+        "summary": "高风险动作已停在 HITL 节点，等待操作员核对影响与回滚方式。",
+        "title": "等待人工批准",
+        "detail": "当前没有执行封禁。批准或拒绝必须由操作员明确提交。",
+        "confidence": "94%",
+        "topology": "处置路径暂停在 HITL，临时策略尚未下发",
+        "evidence": [
+          [
+            "攻击载荷已确认",
+            "complete"
+          ],
+          [
+            "响应差异已确认",
+            "complete"
+          ],
+          [
+            "影响范围已核对",
+            "complete"
+          ],
+          [
+            "CWE-89 已引用",
+            "complete"
+          ]
+        ],
+        "progressLabel": "等待审批",
+        "actions": [
+          {
+            "type": "hitl",
+            "name": "HITL 审批",
+            "detail": "高风险动作暂停，等待操作员核对影响与回滚方式"
+          }
+        ]
+      },
+      {
+        "status": "approved",
+        "summary": "操作员已批准限时封禁，动作仍处于未执行状态。",
+        "title": "已批准，等待执行",
+        "detail": "批准记录只授权目标为 203.0.113.24、时长为 15 分钟的临时策略。",
+        "confidence": "已批准",
+        "topology": "HITL 决策已记录，策略节点等待执行回执",
+        "evidence": [
+          [
+            "攻击载荷已确认",
+            "complete"
+          ],
+          [
+            "响应差异已确认",
+            "complete"
+          ],
+          [
+            "影响范围已核对",
+            "complete"
+          ],
+          [
+            "批准范围已锁定",
+            "complete"
+          ]
+        ],
+        "progressLabel": "人工批准",
+        "actions": [
+          {
+            "type": "hitl",
+            "name": "人工批准",
+            "detail": "批准限时封禁 203.0.113.24 共 15 分钟，锁定执行范围"
+          }
+        ]
+      },
+      {
+        "status": "executed",
+        "summary": "样例执行器返回临时封禁策略已生效，下一步需要重新发起攻击复测。",
+        "title": "限时封禁已执行",
+        "detail": "处置成功来自样例执行回执，不来自倒计时推断。",
+        "confidence": "已执行",
+        "topology": "临时策略已下发，攻击源访问路径被阻断",
+        "evidence": [
+          [
+            "攻击载荷已确认",
+            "complete"
+          ],
+          [
+            "响应差异已确认",
+            "complete"
+          ],
+          [
+            "策略回执已收到",
+            "complete"
+          ],
+          [
+            "等待复测",
+            "active"
+          ]
+        ],
+        "progressLabel": "限时封禁",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "防火墙封禁",
+            "detail": "下发临时封禁策略，执行器返回已生效回执"
+          }
+        ]
+      },
+      {
+        "status": "verified",
+        "summary": "同一攻击请求复测返回 403，数据库不再收到对应查询。",
+        "title": "复测确认攻击失效",
+        "detail": "复测结果与数据库遥测同时满足验证条件，处置结果可以进入审计收口。",
+        "confidence": "已验证",
+        "topology": "攻击路径中断，Web 与数据库遥测确认没有穿透",
+        "evidence": [
+          [
+            "复测响应 403",
+            "complete"
+          ],
+          [
+            "数据库查询 0 次",
+            "complete"
+          ],
+          [
+            "策略仍在有效期",
+            "complete"
+          ],
+          [
+            "审计摘要待生成",
+            "active"
+          ]
+        ],
+        "progressLabel": "复测验证",
+        "actions": [
+          {
+            "type": "verify",
+            "name": "复测验证",
+            "detail": "重放同一攻击请求返回 403，数据库 0 次查询，确认攻击失效"
+          }
+        ]
+      },
+      {
+        "status": "completed",
+        "summary": "发现、研判、审批、处置和复测均已形成可追溯记录。",
+        "title": "可信安全事件闭环完成",
+        "detail": "样例审计编号可用于答辩回看。真实 EAT 会话仍需在审计页单独验证签名链。",
+        "confidence": "闭环",
+        "topology": "处置与验证证据已汇入审计节点，事件闭环完成",
+        "evidence": [
+          [
+            "复测响应 403",
+            "complete"
+          ],
+          [
+            "数据库查询 0 次",
+            "complete"
+          ],
+          [
+            "执行回执已关联",
+            "complete"
+          ],
+          [
+            "审计摘要已生成",
+            "complete"
+          ]
+        ],
+        "progressLabel": "审计闭环",
+        "actions": [
+          {
+            "type": "cot",
+            "name": "闭环推理",
+            "detail": "发现→研判→审批→处置→复测全程留痕，形成可信闭环"
+          },
+          {
+            "type": "tool",
+            "name": "EAT 审计",
+            "detail": "生成审计摘要，回执纳入 EAT 签名链"
+          }
+        ]
+      }
+    ],
+    "truthStates": {
+      "rejected": {
+        "terminal": true,
+        "confidence": "已拒绝",
+        "summary": "操作员拒绝限时封禁，系统保留证据但不执行处置。",
+        "title": "已拒绝，动作未执行",
+        "detail": "攻击路径仍可能有效。可以补充证据、调整建议或重新发起审批。",
+        "topology": "操作员拒绝处置，路径在 HITL 节点中断，未执行封禁",
+        "control": [
+          "已拒绝",
+          "操作员拒绝请求，没有执行任何封禁动作。",
+          "is-failed"
+        ]
+      },
+      "expired": {
+        "terminal": true,
+        "confidence": "已过期",
+        "summary": "审批窗口已结束，系统没有执行处置动作。",
+        "title": "审批已过期",
+        "detail": "等待超时，处置请求自动失效。可以重新发起审批。",
+        "topology": "审批超时，处置路径在 HITL 节点中断",
+        "control": [
+          "已过期",
+          "审批窗口超时，未执行封禁动作。",
+          "is-failed"
+        ]
+      },
+      "execution_failed": {
+        "terminal": true,
+        "confidence": "执行失败",
+        "summary": "审批已经通过，但执行器返回失败。动作未完成，攻击仍可能有效。",
+        "title": "执行失败，攻击未阻断",
+        "detail": "需要操作员检查执行器、目标与回滚状态；未收到成功回执前不得进入复测成功或闭环。",
+        "topology": "动作执行失败，处置路径在策略节点中断，攻击仍可能有效",
+        "control": [
+          "执行失败",
+          "审批已通过，但执行器返回失败。攻击不视为已阻断。",
+          "is-failed"
+        ]
+      },
+      "verification_failed": {
+        "terminal": true,
+        "confidence": "复测失败",
+        "summary": "处置动作已有执行回执，但复测没有证明攻击失效，事件不能闭环。",
+        "title": "复测失败，尚未闭环",
+        "detail": "需要检查策略生效范围并重新处置。执行成功不等于验证成功。",
+        "topology": "策略已执行，但复测未证明攻击失效，路径在验证节点中断",
+        "control": [
+          "复测失败",
+          "动作已执行，但复测证据不足以证明攻击失效。",
+          "is-failed"
+        ]
+      }
+    },
+    "stageAudit": [
+      [
+        "样例基线已就绪",
+        "场景回放已标注，尚未执行安全动作。"
+      ],
+      [
+        "检测到 SQL 注入",
+        "XDR 规则命中脱敏请求载荷，创建安全事件。"
+      ],
+      [
+        "完成证据关联",
+        "请求、响应、资产和数据库审计片段进入同一证据上下文。"
+      ],
+      [
+        "形成处置建议",
+        "AI 建议限时封禁源 IP，未执行高风险动作。"
+      ],
+      [
+        "进入 HITL 审批",
+        "处置路径暂停，等待操作员明确决策。"
+      ],
+      [
+        "操作员批准处置",
+        "批准范围锁定为脱敏源 IP 和 15 分钟临时策略。"
+      ],
+      [
+        "样例执行回执成功",
+        "本地样例执行器返回策略已生效，处置结果标记为 executed。"
+      ],
+      [
+        "复测确认攻击失效",
+        "同一攻击请求返回 403，数据库未收到对应查询。"
+      ],
+      [
+        "生成闭环摘要",
+        "审计摘要已生成，真实 EAT 签名链需单独验证。"
+      ]
+    ],
+    "auditId": "EAT-SQLI-DEMO",
+    "executionReceiptId": "FIXTURE-EXEC-SQLI",
+    "verificationReceiptId": "FIXTURE-VERIFY-SQLI"
+  },
+  "webshell": {
+    "case": {
+      "title": "WebShell 写入攻击闭环",
+      "summary": "Web 应用上传接口检测到 PHP 文件写入，疑似 WebShell 落地。",
+      "risk": "严重风险",
+      "riskClass": "risk-high",
+      "topologyTitle": "WebShell 写入与处置证据拓扑",
+      "topologyDesc": "展示攻击源、Web 应用、文件系统、WAF、AI 智能体、HITL 审批、隔离策略和审计证据之间的状态路径。",
+      "topologyLabels": {
+        "nodes": {
+          "attacker": {
+            "label": "攻击源 IP",
+            "value": "45.155.7.90"
+          },
+          "web": {
+            "label": "业务站点 Web",
+            "value": "/upload.php"
+          },
+          "database": {
+            "label": "文件系统",
+            "value": "网站根目录"
+          },
+          "xdr": {
+            "label": "检测 / WAF",
+            "value": "上传特征 + 行为证据"
+          },
+          "policy": {
+            "label": "隔离策略",
+            "value": "清除木马，可回滚"
+          },
+          "ai": {
+            "label": "AI 安全智能体",
+            "value": "证据约束研判"
+          },
+          "hitl": {
+            "label": "HITL 审批",
+            "value": "保留人类控制权"
+          },
+          "audit": {
+            "label": "审计证据",
+            "value": "EAT 决策回执"
+          }
+        },
+        "edges": {
+          "telemetry": "遥测",
+          "evidence": "证据",
+          "recommendation": "建议",
+          "approval": "批准",
+          "verification": "复测",
+          "audit": "回执",
+          "attack-entry": "恶意上传",
+          "asset-path": "写入链路",
+          "enforcement": "隔离木马文件"
+        }
+      }
+    },
+    "stages": [
+      {
+        "status": "ready",
+        "summary": "系统处于正常基线，等待开始回放。",
+        "title": "未发现异常",
+        "detail": "上传请求和文件系统均处于基线范围。",
+        "confidence": "基线",
+        "topology": "基线正常，尚未检测到攻击",
+        "evidence": [
+          [
+            "等待攻击样本",
+            "pending"
+          ],
+          [
+            "等待关联",
+            "pending"
+          ],
+          [
+            "等待确认",
+            "pending"
+          ],
+          [
+            "等待 RAG",
+            "pending"
+          ]
+        ],
+        "progressLabel": "正常运行",
+        "actions": [
+          {
+            "type": "thought",
+            "name": "基线监控",
+            "detail": "上传请求与文件系统均处于基线，持续监测无异常"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "WAF 检测到上传请求包含 PHP 代码特征。",
+        "title": "发现 WebShell 写入",
+        "detail": "上传载荷包含 eval() 和 system() 调用，攻击源为 198.51.100.42。",
+        "confidence": "78%",
+        "topology": "恶意上传请求已到达 Web 应用，WAF 产生告警",
+        "evidence": [
+          [
+            "eval($_POST[cmd])",
+            "active"
+          ],
+          [
+            "Content-Type: multipart",
+            "active"
+          ],
+          [
+            "上传 API",
+            "active"
+          ],
+          [
+            "等待 RAG",
+            "pending"
+          ]
+        ],
+        "progressLabel": "发现木马",
+        "actions": [
+          {
+            "type": "thought",
+            "name": "研判思考",
+            "detail": "上传请求包含 PHP 代码特征，疑似 WebShell 落地"
+          },
+          {
+            "type": "tool",
+            "name": "WAF 检测",
+            "detail": "命中 eval()/system() 特征，攻击源 198.51.100.42"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "上传载荷、文件落地路径、进程派生和 WAF 日志已被关联。",
+        "title": "四类证据指向 WebShell 落地",
+        "detail": "文件 /var/www/uploads/shell.php 已确认写入，同时间窗检测到异常子进程派生。",
+        "confidence": "91%",
+        "topology": "攻击路径与文件系统证据完成关联，证据送达 AI 智能体",
+        "evidence": [
+          [
+            "eval($_POST[cmd])",
+            "complete"
+          ],
+          [
+            "shell.php 已落地",
+            "complete"
+          ],
+          [
+            "子进程派生异常",
+            "complete"
+          ],
+          [
+            "等待 RAG",
+            "active"
+          ]
+        ],
+        "progressLabel": "汇聚证据",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "RAG 检索",
+            "detail": "检索 WebShell 处置基线，锚定知识证据"
+          },
+          {
+            "type": "rag",
+            "name": "CWE-94",
+            "detail": "命中代码注入（CWE-94）处置基线 3 条"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "AI 结合直接证据与 RAG 基线，判定为高置信 WebShell 攻击。",
+        "title": "严重风险，建议立即隔离",
+        "detail": "建议隔离目标主机并删除 WebShell 文件，阻断外联。证据支持立即处置。",
+        "confidence": "96%",
+        "topology": "AI 已形成可解释建议，尚未触发任何处置",
+        "evidence": [
+          [
+            "eval($_POST[cmd])",
+            "complete"
+          ],
+          [
+            "shell.php 已落地",
+            "complete"
+          ],
+          [
+            "子进程派生异常",
+            "complete"
+          ],
+          [
+            "CWE-94 处置基线",
+            "complete"
+          ]
+        ],
+        "progressLabel": "AI 研判",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "SymPas code_scan",
+            "detail": "静态扫描 shell.php，确认危险调用与落地路径"
+          },
+          {
+            "type": "rag",
+            "name": "CWE-94",
+            "detail": "引用 CWE-94 处置基线，建议隔离主机并清除"
+          },
+          {
+            "type": "cot",
+            "name": "可验证推理",
+            "detail": "恶意代码落地 + 子进程派生异常 → 高置信 WebShell"
+          }
+        ]
+      },
+      {
+        "status": "awaiting-approval",
+        "summary": "严重风险动作已停在 HITL 节点，等待操作员核对影响与回滚方式。",
+        "title": "等待人工批准",
+        "detail": "当前没有执行隔离。批准或拒绝必须由操作员明确提交。",
+        "confidence": "96%",
+        "topology": "处置路径暂停在 HITL，隔离策略尚未下发",
+        "evidence": [
+          [
+            "WebShell 已确认",
+            "complete"
+          ],
+          [
+            "文件路径已锁定",
+            "complete"
+          ],
+          [
+            "影响范围已核对",
+            "complete"
+          ],
+          [
+            "CWE-94 已引用",
+            "complete"
+          ]
+        ],
+        "progressLabel": "等待审批",
+        "actions": [
+          {
+            "type": "hitl",
+            "name": "HITL 审批",
+            "detail": "严重风险动作暂停，等待操作员核对影响与回滚方式"
+          }
+        ]
+      },
+      {
+        "status": "approved",
+        "summary": "操作员已批准主机隔离，动作仍处于未执行状态。",
+        "title": "已批准，等待执行",
+        "detail": "批准记录只授权目标为 198.51.100.42 的主机隔离和文件删除。",
+        "confidence": "已批准",
+        "topology": "HITL 决策已记录，策略节点等待执行回执",
+        "evidence": [
+          [
+            "WebShell 已确认",
+            "complete"
+          ],
+          [
+            "文件路径已锁定",
+            "complete"
+          ],
+          [
+            "影响范围已核对",
+            "complete"
+          ],
+          [
+            "批准范围已锁定",
+            "complete"
+          ]
+        ],
+        "progressLabel": "人工批准",
+        "actions": [
+          {
+            "type": "hitl",
+            "name": "人工批准",
+            "detail": "批准隔离 198.51.100.42 并删除 shell.php，锁定范围"
+          }
+        ]
+      },
+      {
+        "status": "executed",
+        "summary": "样例执行器返回主机隔离和文件删除已生效。",
+        "title": "隔离与清除已执行",
+        "detail": "处置成功来自样例执行回执，shell.php 已删除，主机网络已隔离。",
+        "confidence": "已执行",
+        "topology": "隔离策略已下发，攻击源主机访问路径被阻断",
+        "evidence": [
+          [
+            "WebShell 已确认",
+            "complete"
+          ],
+          [
+            "文件路径已锁定",
+            "complete"
+          ],
+          [
+            "隔离回执已收到",
+            "complete"
+          ],
+          [
+            "等待复测",
+            "active"
+          ]
+        ],
+        "progressLabel": "隔离清除",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "隔离清除",
+            "detail": "主机网络隔离 + 删除 shell.php，执行器返回回执"
+          }
+        ]
+      },
+      {
+        "status": "verified",
+        "summary": "复测确认 WebShell 已无法访问，主机外联已阻断。",
+        "title": "复测确认攻击失效",
+        "detail": "复测请求返回 404，主机网络隔离生效，处置结果可以进入审计收口。",
+        "confidence": "已验证",
+        "topology": "攻击路径中断，Web 与文件系统确认没有残留",
+        "evidence": [
+          [
+            "复测响应 404",
+            "complete"
+          ],
+          [
+            "文件已删除",
+            "complete"
+          ],
+          [
+            "隔离仍在有效期",
+            "complete"
+          ],
+          [
+            "审计摘要待生成",
+            "active"
+          ]
+        ],
+        "progressLabel": "复测验证",
+        "actions": [
+          {
+            "type": "verify",
+            "name": "复测验证",
+            "detail": "复测请求返回 404，文件已删除，确认攻击失效"
+          }
+        ]
+      },
+      {
+        "status": "completed",
+        "summary": "发现、研判、审批、处置和复测均已形成可追溯记录。",
+        "title": "可信安全事件闭环完成",
+        "detail": "审计摘要已生成，真实 EAT 会话仍需在审计页单独验证签名链。",
+        "confidence": "闭环",
+        "topology": "处置与验证证据已汇入审计节点，事件闭环完成",
+        "evidence": [
+          [
+            "复测响应 404",
+            "complete"
+          ],
+          [
+            "文件已删除",
+            "complete"
+          ],
+          [
+            "隔离回执已关联",
+            "complete"
+          ],
+          [
+            "审计摘要已生成",
+            "complete"
+          ]
+        ],
+        "progressLabel": "审计闭环",
+        "actions": [
+          {
+            "type": "cot",
+            "name": "闭环推理",
+            "detail": "发现→研判→审批→处置→复测全程留痕，形成可信闭环"
+          },
+          {
+            "type": "tool",
+            "name": "EAT 审计",
+            "detail": "生成审计摘要，回执纳入 EAT 签名链"
+          }
+        ]
+      }
+    ],
+    "truthStates": {
+      "rejected": {
+        "terminal": true,
+        "confidence": "已拒绝",
+        "summary": "操作员拒绝主机隔离，系统保留证据但不执行处置。",
+        "title": "已拒绝，动作未执行",
+        "detail": "WebShell 仍可能有效。可以补充证据、调整建议或重新发起审批。",
+        "topology": "操作员拒绝处置，路径在 HITL 节点中断，未执行隔离",
+        "control": [
+          "已拒绝",
+          "操作员拒绝请求，没有执行任何隔离动作。",
+          "is-failed"
+        ]
+      },
+      "expired": {
+        "terminal": true,
+        "confidence": "已过期",
+        "summary": "审批窗口已结束，系统没有执行处置动作。",
+        "title": "审批已过期",
+        "detail": "等待超时，处置请求自动失效。可以重新发起审批。",
+        "topology": "审批超时，处置路径在 HITL 节点中断",
+        "control": [
+          "已过期",
+          "审批窗口超时，未执行隔离动作。",
+          "is-failed"
+        ]
+      },
+      "execution_failed": {
+        "terminal": true,
+        "confidence": "执行失败",
+        "summary": "审批已经通过，但执行器返回失败。动作未完成，WebShell 仍可能有效。",
+        "title": "执行失败，攻击未阻断",
+        "detail": "需要操作员检查执行器、目标与回滚状态；未收到成功回执前不得进入复测成功或闭环。",
+        "topology": "动作执行失败，处置路径在策略节点中断，WebShell 仍可能有效",
+        "control": [
+          "执行失败",
+          "审批已通过，但执行器返回失败。攻击不视为已阻断。",
+          "is-failed"
+        ]
+      },
+      "verification_failed": {
+        "terminal": true,
+        "confidence": "复测失败",
+        "summary": "处置动作已有执行回执，但复测没有证明 WebShell 失效，事件不能闭环。",
+        "title": "复测失败，尚未闭环",
+        "detail": "需要检查隔离生效范围并重新处置。执行成功不等于验证成功。",
+        "topology": "策略已执行，但复测未证明 WebShell 失效，路径在验证节点中断",
+        "control": [
+          "复测失败",
+          "动作已执行，但复测证据不足以证明攻击失效。",
+          "is-failed"
+        ]
+      }
+    },
+    "stageAudit": [
+      [
+        "样例基线已就绪",
+        "场景回放已标注，尚未执行安全动作。"
+      ],
+      [
+        "检测到 WebShell 写入",
+        "WAF 规则命中 PHP 代码上传载荷，创建安全事件。"
+      ],
+      [
+        "完成证据关联",
+        "上传载荷、文件落地、进程派生和 WAF 日志进入同一证据上下文。"
+      ],
+      [
+        "形成处置建议",
+        "AI 建议立即隔离主机并删除 WebShell，未执行高风险动作。"
+      ],
+      [
+        "进入 HITL 审批",
+        "处置路径暂停，等待操作员明确决策。"
+      ],
+      [
+        "操作员批准处置",
+        "批准范围锁定为目标主机隔离和文件删除。"
+      ],
+      [
+        "样例执行回执成功",
+        "本地样例执行器返回隔离和删除已生效，处置结果标记为 executed。"
+      ],
+      [
+        "复测确认攻击失效",
+        "WebShell 返回 404，主机外联已阻断。"
+      ],
+      [
+        "生成闭环摘要",
+        "审计摘要已生成，真实 EAT 签名链需单独验证。"
+      ]
+    ],
+    "auditId": "EAT-WEBSHELL-DEMO",
+    "executionReceiptId": "FIXTURE-EXEC-WEBSHELL",
+    "verificationReceiptId": "FIXTURE-VERIFY-WEBSHELL"
+  },
+  "apt": {
+    "case": {
+      "title": "APT 持续入侵攻击闭环",
+      "summary": "内网横向移动检测到异常凭据使用，疑似 APT 攻击持久化阶段。",
+      "risk": "严重风险",
+      "riskClass": "risk-high",
+      "topologyTitle": "APT 入侵与处置证据拓扑",
+      "topologyDesc": "展示攻击源、内网主机、域控制器、EDR、AI 智能体、HITL 审批、隔离策略和审计证据之间的状态路径。",
+      "topologyLabels": {
+        "nodes": {
+          "attacker": {
+            "label": "攻击源 IP",
+            "value": "185.220.101.34"
+          },
+          "web": {
+            "label": "内网主机",
+            "value": "跳板主机"
+          },
+          "database": {
+            "label": "域控制器",
+            "value": "核心资产"
+          },
+          "xdr": {
+            "label": "检测 / EDR",
+            "value": "横向移动 + 持久化特征"
+          },
+          "policy": {
+            "label": "隔离策略",
+            "value": "隔离内网主机"
+          },
+          "ai": {
+            "label": "AI 安全智能体",
+            "value": "证据约束研判"
+          },
+          "hitl": {
+            "label": "HITL 审批",
+            "value": "保留人类控制权"
+          },
+          "audit": {
+            "label": "审计证据",
+            "value": "EAT 决策回执"
+          }
+        },
+        "edges": {
+          "telemetry": "遥测",
+          "evidence": "证据",
+          "recommendation": "建议",
+          "approval": "批准",
+          "verification": "复测",
+          "audit": "回执",
+          "attack-entry": "横向移动",
+          "asset-path": "横向链路",
+          "enforcement": "隔离内网主机"
+        }
+      }
+    },
+    "stages": [
+      {
+        "status": "ready",
+        "summary": "系统处于正常基线，等待开始回放。",
+        "title": "未发现异常",
+        "detail": "内网流量和域控日志均处于基线范围。",
+        "confidence": "基线",
+        "topology": "基线正常，尚未检测到攻击",
+        "evidence": [
+          [
+            "等待攻击样本",
+            "pending"
+          ],
+          [
+            "等待关联",
+            "pending"
+          ],
+          [
+            "等待确认",
+            "pending"
+          ],
+          [
+            "等待 RAG",
+            "pending"
+          ]
+        ],
+        "progressLabel": "正常运行",
+        "actions": [
+          {
+            "type": "thought",
+            "name": "基线监控",
+            "detail": "内网流量与域控日志均处于基线，持续监测无异常"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "EDR 检测到域内异常凭据使用和横向移动。",
+        "title": "发现 APT 横向移动",
+        "detail": "检测到 Pass-the-Hash 攻击特征，攻击源主机 10.0.1.55 尝试访问域控。",
+        "confidence": "75%",
+        "topology": "恶意横向移动已到达内网，EDR 产生告警",
+        "evidence": [
+          [
+            "PtH 特征匹配",
+            "active"
+          ],
+          [
+            "异常登录 10.0.1.55",
+            "active"
+          ],
+          [
+            "域控访问尝试",
+            "active"
+          ],
+          [
+            "等待 RAG",
+            "pending"
+          ]
+        ],
+        "progressLabel": "发现横移",
+        "actions": [
+          {
+            "type": "thought",
+            "name": "研判思考",
+            "detail": "检测到域内异常凭据使用，疑似 Pass-the-Hash 横向移动"
+          },
+          {
+            "type": "tool",
+            "name": "EDR 检测",
+            "detail": "命中 PtH 特征，10.0.1.55 尝试访问域控"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "凭据使用、横向移动、持久化后门和 EDR 日志已被关联。",
+        "title": "四类证据指向 APT 持久化",
+        "detail": "发现计划任务后门和注册表持久化项，攻击已持续至少 72 小时。",
+        "confidence": "93%",
+        "topology": "攻击路径与内网证据完成关联，证据送达 AI 智能体",
+        "evidence": [
+          [
+            "PtH 特征匹配",
+            "complete"
+          ],
+          [
+            "异常登录 10.0.1.55",
+            "complete"
+          ],
+          [
+            "持久化后门已发现",
+            "complete"
+          ],
+          [
+            "等待 RAG",
+            "active"
+          ]
+        ],
+        "progressLabel": "汇聚证据",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "RAG 检索",
+            "detail": "检索 APT 横向移动处置基线，锚定知识证据"
+          },
+          {
+            "type": "rag",
+            "name": "TA0008",
+            "detail": "命中横向移动（TA0008）战术基线 3 条"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "AI 结合直接证据与 RAG 基线，判定为高置信 APT 攻击。",
+        "title": "严重风险，建议立即隔离",
+        "detail": "建议立即隔离受控主机并重置相关凭据，阻断横向移动。证据支持立即处置。",
+        "confidence": "97%",
+        "topology": "AI 已形成可解释建议，尚未触发任何处置",
+        "evidence": [
+          [
+            "PtH 特征匹配",
+            "complete"
+          ],
+          [
+            "异常登录 10.0.1.55",
+            "complete"
+          ],
+          [
+            "持久化后门已发现",
+            "complete"
+          ],
+          [
+            "APT 处置基线",
+            "complete"
+          ]
+        ],
+        "progressLabel": "AI 研判",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "cwe_classifier",
+            "detail": "关联计划任务后门与注册表持久化项，判定 APT"
+          },
+          {
+            "type": "rag",
+            "name": "TA0003",
+            "detail": "引用持久化（TA0003）处置基线，建议隔离重置"
+          },
+          {
+            "type": "cot",
+            "name": "可验证推理",
+            "detail": "PtH 特征 + 持久化后门 + 持续 72h → 高置信 APT"
+          }
+        ]
+      },
+      {
+        "status": "awaiting-approval",
+        "summary": "严重风险动作已停在 HITL 节点，等待操作员核对影响与回滚方式。",
+        "title": "等待人工批准",
+        "detail": "当前没有执行隔离。批准或拒绝必须由操作员明确提交。",
+        "confidence": "97%",
+        "topology": "处置路径暂停在 HITL，隔离策略尚未下发",
+        "evidence": [
+          [
+            "横向移动已确认",
+            "complete"
+          ],
+          [
+            "持久化已确认",
+            "complete"
+          ],
+          [
+            "影响范围已核对",
+            "complete"
+          ],
+          [
+            "APT 基线已引用",
+            "complete"
+          ]
+        ],
+        "progressLabel": "等待审批",
+        "actions": [
+          {
+            "type": "hitl",
+            "name": "HITL 审批",
+            "detail": "严重风险动作暂停，等待操作员核对影响与回滚方式"
+          }
+        ]
+      },
+      {
+        "status": "approved",
+        "summary": "操作员已批准主机隔离和凭据重置，动作仍处于未执行状态。",
+        "title": "已批准，等待执行",
+        "detail": "批准记录只授权目标为 10.0.1.55 的主机隔离和相关凭据重置。",
+        "confidence": "已批准",
+        "topology": "HITL 决策已记录，策略节点等待执行回执",
+        "evidence": [
+          [
+            "横向移动已确认",
+            "complete"
+          ],
+          [
+            "持久化已确认",
+            "complete"
+          ],
+          [
+            "影响范围已核对",
+            "complete"
+          ],
+          [
+            "批准范围已锁定",
+            "complete"
+          ]
+        ],
+        "progressLabel": "人工批准",
+        "actions": [
+          {
+            "type": "hitl",
+            "name": "人工批准",
+            "detail": "批准隔离 10.0.1.55 并重置相关凭据，锁定范围"
+          }
+        ]
+      },
+      {
+        "status": "executed",
+        "summary": "样例执行器返回主机隔离和凭据重置已生效。",
+        "title": "隔离与重置已执行",
+        "detail": "处置成功来自样例执行回执，受控主机已隔离，凭据已重置。",
+        "confidence": "已执行",
+        "topology": "隔离策略已下发，攻击源主机访问路径被阻断",
+        "evidence": [
+          [
+            "横向移动已确认",
+            "complete"
+          ],
+          [
+            "持久化已确认",
+            "complete"
+          ],
+          [
+            "隔离回执已收到",
+            "complete"
+          ],
+          [
+            "等待复测",
+            "active"
+          ]
+        ],
+        "progressLabel": "隔离重置",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "隔离重置",
+            "detail": "受控主机隔离 + 凭据重置，执行器返回回执"
+          }
+        ]
+      },
+      {
+        "status": "verified",
+        "summary": "复测确认横向移动已阻断，持久化后门已清除。",
+        "title": "复测确认攻击失效",
+        "detail": "复测确认主机隔离生效，计划任务和注册表项已清除，处置结果可以进入审计收口。",
+        "confidence": "已验证",
+        "topology": "攻击路径中断，内网与域控确认没有残留",
+        "evidence": [
+          [
+            "复测隔离生效",
+            "complete"
+          ],
+          [
+            "后门已清除",
+            "complete"
+          ],
+          [
+            "凭据已重置",
+            "complete"
+          ],
+          [
+            "审计摘要待生成",
+            "active"
+          ]
+        ],
+        "progressLabel": "复测验证",
+        "actions": [
+          {
+            "type": "verify",
+            "name": "复测验证",
+            "detail": "复测确认横向移动阻断、后门清除，攻击失效"
+          }
+        ]
+      },
+      {
+        "status": "completed",
+        "summary": "发现、研判、审批、处置和复测均已形成可追溯记录。",
+        "title": "可信安全事件闭环完成",
+        "detail": "审计摘要已生成，真实 EAT 会话仍需在审计页单独验证签名链。",
+        "confidence": "闭环",
+        "topology": "处置与验证证据已汇入审计节点，事件闭环完成",
+        "evidence": [
+          [
+            "复测隔离生效",
+            "complete"
+          ],
+          [
+            "后门已清除",
+            "complete"
+          ],
+          [
+            "隔离回执已关联",
+            "complete"
+          ],
+          [
+            "审计摘要已生成",
+            "complete"
+          ]
+        ],
+        "progressLabel": "审计闭环",
+        "actions": [
+          {
+            "type": "cot",
+            "name": "闭环推理",
+            "detail": "发现→研判→审批→处置→复测全程留痕，形成可信闭环"
+          },
+          {
+            "type": "tool",
+            "name": "EAT 审计",
+            "detail": "生成审计摘要，回执纳入 EAT 签名链"
+          }
+        ]
+      }
+    ],
+    "truthStates": {
+      "rejected": {
+        "terminal": true,
+        "confidence": "已拒绝",
+        "summary": "操作员拒绝主机隔离，系统保留证据但不执行处置。",
+        "title": "已拒绝，动作未执行",
+        "detail": "APT 攻击仍可能有效。可以补充证据、调整建议或重新发起审批。",
+        "topology": "操作员拒绝处置，路径在 HITL 节点中断，未执行隔离",
+        "control": [
+          "已拒绝",
+          "操作员拒绝请求，没有执行任何隔离动作。",
+          "is-failed"
+        ]
+      },
+      "expired": {
+        "terminal": true,
+        "confidence": "已过期",
+        "summary": "审批窗口已结束，系统没有执行处置动作。",
+        "title": "审批已过期",
+        "detail": "等待超时，处置请求自动失效。可以重新发起审批。",
+        "topology": "审批超时，处置路径在 HITL 节点中断",
+        "control": [
+          "已过期",
+          "审批窗口超时，未执行隔离动作。",
+          "is-failed"
+        ]
+      },
+      "execution_failed": {
+        "terminal": true,
+        "confidence": "执行失败",
+        "summary": "审批已经通过，但执行器返回失败。动作未完成，APT 攻击仍可能有效。",
+        "title": "执行失败，攻击未阻断",
+        "detail": "需要操作员检查执行器、目标与回滚状态；未收到成功回执前不得进入复测成功或闭环。",
+        "topology": "动作执行失败，处置路径在策略节点中断，APT 攻击仍可能有效",
+        "control": [
+          "执行失败",
+          "审批已通过，但执行器返回失败。攻击不视为已阻断。",
+          "is-failed"
+        ]
+      },
+      "verification_failed": {
+        "terminal": true,
+        "confidence": "复测失败",
+        "summary": "处置动作已有执行回执，但复测没有证明 APT 攻击失效，事件不能闭环。",
+        "title": "复测失败，尚未闭环",
+        "detail": "需要检查隔离生效范围并重新处置。执行成功不等于验证成功。",
+        "topology": "策略已执行，但复测未证明攻击失效，路径在验证节点中断",
+        "control": [
+          "复测失败",
+          "动作已执行，但复测证据不足以证明攻击失效。",
+          "is-failed"
+        ]
+      }
+    },
+    "stageAudit": [
+      [
+        "样例基线已就绪",
+        "场景回放已标注，尚未执行安全动作。"
+      ],
+      [
+        "检测到 APT 横向移动",
+        "EDR 规则命中 Pass-the-Hash 特征，创建安全事件。"
+      ],
+      [
+        "完成证据关联",
+        "凭据使用、横向移动、持久化后门和 EDR 日志进入同一证据上下文。"
+      ],
+      [
+        "形成处置建议",
+        "AI 建议立即隔离受控主机并重置凭据，未执行高风险动作。"
+      ],
+      [
+        "进入 HITL 审批",
+        "处置路径暂停，等待操作员明确决策。"
+      ],
+      [
+        "操作员批准处置",
+        "批准范围锁定为目标主机隔离和凭据重置。"
+      ],
+      [
+        "样例执行回执成功",
+        "本地样例执行器返回隔离和重置已生效，处置结果标记为 executed。"
+      ],
+      [
+        "复测确认攻击失效",
+        "主机隔离生效，持久化后门已清除。"
+      ],
+      [
+        "生成闭环摘要",
+        "审计摘要已生成，真实 EAT 签名链需单独验证。"
+      ]
+    ],
+    "auditId": "EAT-APT-DEMO",
+    "executionReceiptId": "FIXTURE-EXEC-APT",
+    "verificationReceiptId": "FIXTURE-VERIFY-APT"
+  },
+  "credential_theft": {
+    "case": {
+      "title": "凭据窃取攻击闭环",
+      "summary": "凌晨检测到 lsass 进程异常访问，疑似凭据窃取行为。",
+      "risk": "高风险",
+      "riskClass": "risk-high",
+      "topologyTitle": "凭据窃取与处置证据拓扑",
+      "topologyDesc": "展示攻击源、终端主机、域凭据、EDR、AI 智能体、HITL 审批、隔离策略和审计证据之间的状态路径。",
+      "topologyLabels": {
+        "nodes": {
+          "attacker": {
+            "label": "攻击源 IP",
+            "value": "198.51.100.7"
+          },
+          "web": {
+            "label": "终端主机",
+            "value": "lsass_backup.exe"
+          },
+          "database": {
+            "label": "域凭据库",
+            "value": "核心资产"
+          },
+          "xdr": {
+            "label": "检测 / EDR",
+            "value": "lsass 访问 + 哈希特征"
+          },
+          "policy": {
+            "label": "隔离策略",
+            "value": "重置凭据"
+          },
+          "ai": {
+            "label": "AI 安全智能体",
+            "value": "证据约束研判"
+          },
+          "hitl": {
+            "label": "HITL 审批",
+            "value": "保留人类控制权"
+          },
+          "audit": {
+            "label": "审计证据",
+            "value": "EAT 决策回执"
+          }
+        },
+        "edges": {
+          "telemetry": "遥测",
+          "evidence": "证据",
+          "recommendation": "建议",
+          "approval": "批准",
+          "verification": "复测",
+          "audit": "回执",
+          "attack-entry": "凭据窃取",
+          "asset-path": "凭据链路",
+          "enforcement": "重置凭据"
+        }
+      }
+    },
+    "stages": [
+      {
+        "status": "ready",
+        "summary": "系统处于正常基线，等待开始回放。",
+        "title": "未发现异常",
+        "detail": "终端进程和凭据访问均处于基线范围。",
+        "confidence": "基线",
+        "topology": "基线正常，尚未检测到攻击",
+        "evidence": [
+          [
+            "等待攻击样本",
+            "pending"
+          ],
+          [
+            "等待关联",
+            "pending"
+          ],
+          [
+            "等待确认",
+            "pending"
+          ],
+          [
+            "等待 RAG",
+            "pending"
+          ]
+        ],
+        "progressLabel": "正常运行",
+        "actions": [
+          {
+            "type": "thought",
+            "name": "基线监控",
+            "detail": "终端进程与凭据访问均处于基线，持续监测无异常"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "EDR 检测到 lsass.exe 异常进程访问。",
+        "title": "发现凭据窃取行为",
+        "detail": "检测到可疑进程 mimikatz 尝试读取 lsass 内存，攻击源主机 10.0.2.88。",
+        "confidence": "76%",
+        "topology": "恶意进程已访问 lsass，EDR 产生告警",
+        "evidence": [
+          [
+            "mimikatz 进程",
+            "active"
+          ],
+          [
+            "lsass 内存读取",
+            "active"
+          ],
+          [
+            "异常时间 03:00",
+            "active"
+          ],
+          [
+            "等待 RAG",
+            "pending"
+          ]
+        ],
+        "progressLabel": "发现窃取",
+        "actions": [
+          {
+            "type": "thought",
+            "name": "研判思考",
+            "detail": "凌晨检测到 lsass 异常访问，疑似凭据窃取"
+          },
+          {
+            "type": "tool",
+            "name": "EDR 检测",
+            "detail": "mimikatz 读取 lsass 内存，攻击源 10.0.2.88"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "进程行为、内存访问、网络外联和 EDR 日志已被关联。",
+        "title": "四类证据指向凭据窃取",
+        "detail": "检测到凭据外发行为，攻击已获取至少 3 个域账户凭据。",
+        "confidence": "90%",
+        "topology": "攻击路径与终端证据完成关联，证据送达 AI 智能体",
+        "evidence": [
+          [
+            "mimikatz 进程",
+            "complete"
+          ],
+          [
+            "lsass 内存读取",
+            "complete"
+          ],
+          [
+            "凭据外发已确认",
+            "complete"
+          ],
+          [
+            "等待 RAG",
+            "active"
+          ]
+        ],
+        "progressLabel": "汇聚证据",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "RAG 检索",
+            "detail": "检索凭据窃取处置基线，锚定知识证据"
+          },
+          {
+            "type": "rag",
+            "name": "CWE-522",
+            "detail": "命中凭据保护不足（CWE-522）处置基线 3 条"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "AI 结合直接证据与 RAG 基线，判定为高置信凭据窃取攻击。",
+        "title": "高风险，建议立即隔离",
+        "detail": "建议立即隔离终端主机并重置受影响凭据，阻断外发。证据支持立即处置。",
+        "confidence": "95%",
+        "topology": "AI 已形成可解释建议，尚未触发任何处置",
+        "evidence": [
+          [
+            "mimikatz 进程",
+            "complete"
+          ],
+          [
+            "lsass 内存读取",
+            "complete"
+          ],
+          [
+            "凭据外发已确认",
+            "complete"
+          ],
+          [
+            "CWE-522 处置基线",
+            "complete"
+          ]
+        ],
+        "progressLabel": "AI 研判",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "cwe_classifier",
+            "detail": "关联进程行为与凭据外发，确认 3 个域账户受损"
+          },
+          {
+            "type": "rag",
+            "name": "CWE-522",
+            "detail": "引用 CWE-522 处置基线，建议隔离并重置凭据"
+          },
+          {
+            "type": "cot",
+            "name": "可验证推理",
+            "detail": "lsass 读取 + 凭据外发 + 异常时间 → 高置信窃取"
+          }
+        ]
+      },
+      {
+        "status": "awaiting-approval",
+        "summary": "高风险动作已停在 HITL 节点，等待操作员核对影响与回滚方式。",
+        "title": "等待人工批准",
+        "detail": "当前没有执行隔离。批准或拒绝必须由操作员明确提交。",
+        "confidence": "95%",
+        "topology": "处置路径暂停在 HITL，隔离策略尚未下发",
+        "evidence": [
+          [
+            "凭据窃取已确认",
+            "complete"
+          ],
+          [
+            "外发行为已确认",
+            "complete"
+          ],
+          [
+            "影响范围已核对",
+            "complete"
+          ],
+          [
+            "CWE-522 已引用",
+            "complete"
+          ]
+        ],
+        "progressLabel": "等待审批",
+        "actions": [
+          {
+            "type": "hitl",
+            "name": "HITL 审批",
+            "detail": "高风险动作暂停，等待操作员核对影响与回滚方式"
+          }
+        ]
+      },
+      {
+        "status": "approved",
+        "summary": "操作员已批准终端隔离和凭据重置，动作仍处于未执行状态。",
+        "title": "已批准，等待执行",
+        "detail": "批准记录只授权目标为 10.0.2.88 的终端隔离和 3 个域账户凭据重置。",
+        "confidence": "已批准",
+        "topology": "HITL 决策已记录，策略节点等待执行回执",
+        "evidence": [
+          [
+            "凭据窃取已确认",
+            "complete"
+          ],
+          [
+            "外发行为已确认",
+            "complete"
+          ],
+          [
+            "影响范围已核对",
+            "complete"
+          ],
+          [
+            "批准范围已锁定",
+            "complete"
+          ]
+        ],
+        "progressLabel": "人工批准",
+        "actions": [
+          {
+            "type": "hitl",
+            "name": "人工批准",
+            "detail": "批准隔离 10.0.2.88 并重置 3 个域账户，锁定范围"
+          }
+        ]
+      },
+      {
+        "status": "executed",
+        "summary": "样例执行器返回终端隔离和凭据重置已生效。",
+        "title": "隔离与重置已执行",
+        "detail": "处置成功来自样例执行回执，终端已隔离，3 个域账户凭据已重置。",
+        "confidence": "已执行",
+        "topology": "隔离策略已下发，攻击源终端访问路径被阻断",
+        "evidence": [
+          [
+            "凭据窃取已确认",
+            "complete"
+          ],
+          [
+            "外发行为已确认",
+            "complete"
+          ],
+          [
+            "隔离回执已收到",
+            "complete"
+          ],
+          [
+            "等待复测",
+            "active"
+          ]
+        ],
+        "progressLabel": "隔离重置",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "隔离重置",
+            "detail": "终端隔离 + 凭据重置，执行器返回回执"
+          }
+        ]
+      },
+      {
+        "status": "verified",
+        "summary": "复测确认终端隔离生效，凭据外发已阻断。",
+        "title": "复测确认攻击失效",
+        "detail": "复测确认终端网络隔离生效，受影响凭据已重置，处置结果可以进入审计收口。",
+        "confidence": "已验证",
+        "topology": "攻击路径中断，终端与网络确认没有残留",
+        "evidence": [
+          [
+            "复测隔离生效",
+            "complete"
+          ],
+          [
+            "凭据已重置",
+            "complete"
+          ],
+          [
+            "外发已阻断",
+            "complete"
+          ],
+          [
+            "审计摘要待生成",
+            "active"
+          ]
+        ],
+        "progressLabel": "复测验证",
+        "actions": [
+          {
+            "type": "verify",
+            "name": "复测验证",
+            "detail": "复测确认外发阻断、凭据已重置，攻击失效"
+          }
+        ]
+      },
+      {
+        "status": "completed",
+        "summary": "发现、研判、审批、处置和复测均已形成可追溯记录。",
+        "title": "可信安全事件闭环完成",
+        "detail": "审计摘要已生成，真实 EAT 会话仍需在审计页单独验证签名链。",
+        "confidence": "闭环",
+        "topology": "处置与验证证据已汇入审计节点，事件闭环完成",
+        "evidence": [
+          [
+            "复测隔离生效",
+            "complete"
+          ],
+          [
+            "凭据已重置",
+            "complete"
+          ],
+          [
+            "隔离回执已关联",
+            "complete"
+          ],
+          [
+            "审计摘要已生成",
+            "complete"
+          ]
+        ],
+        "progressLabel": "审计闭环",
+        "actions": [
+          {
+            "type": "cot",
+            "name": "闭环推理",
+            "detail": "发现→研判→审批→处置→复测全程留痕，形成可信闭环"
+          },
+          {
+            "type": "tool",
+            "name": "EAT 审计",
+            "detail": "生成审计摘要，回执纳入 EAT 签名链"
+          }
+        ]
+      }
+    ],
+    "truthStates": {
+      "rejected": {
+        "terminal": true,
+        "confidence": "已拒绝",
+        "summary": "操作员拒绝终端隔离，系统保留证据但不执行处置。",
+        "title": "已拒绝，动作未执行",
+        "detail": "凭据窃取仍可能有效。可以补充证据、调整建议或重新发起审批。",
+        "topology": "操作员拒绝处置，路径在 HITL 节点中断，未执行隔离",
+        "control": [
+          "已拒绝",
+          "操作员拒绝请求，没有执行任何隔离动作。",
+          "is-failed"
+        ]
+      },
+      "expired": {
+        "terminal": true,
+        "confidence": "已过期",
+        "summary": "审批窗口已结束，系统没有执行处置动作。",
+        "title": "审批已过期",
+        "detail": "等待超时，处置请求自动失效。可以重新发起审批。",
+        "topology": "审批超时，处置路径在 HITL 节点中断",
+        "control": [
+          "已过期",
+          "审批窗口超时，未执行隔离动作。",
+          "is-failed"
+        ]
+      },
+      "execution_failed": {
+        "terminal": true,
+        "confidence": "执行失败",
+        "summary": "审批已经通过，但执行器返回失败。动作未完成，凭据窃取仍可能有效。",
+        "title": "执行失败，攻击未阻断",
+        "detail": "需要操作员检查执行器、目标与回滚状态；未收到成功回执前不得进入复测成功或闭环。",
+        "topology": "动作执行失败，处置路径在策略节点中断，凭据窃取仍可能有效",
+        "control": [
+          "执行失败",
+          "审批已通过，但执行器返回失败。攻击不视为已阻断。",
+          "is-failed"
+        ]
+      },
+      "verification_failed": {
+        "terminal": true,
+        "confidence": "复测失败",
+        "summary": "处置动作已有执行回执，但复测没有证明凭据窃取失效，事件不能闭环。",
+        "title": "复测失败，尚未闭环",
+        "detail": "需要检查隔离生效范围并重新处置。执行成功不等于验证成功。",
+        "topology": "策略已执行，但复测未证明攻击失效，路径在验证节点中断",
+        "control": [
+          "复测失败",
+          "动作已执行，但复测证据不足以证明攻击失效。",
+          "is-failed"
+        ]
+      }
+    },
+    "stageAudit": [
+      [
+        "样例基线已就绪",
+        "场景回放已标注，尚未执行安全动作。"
+      ],
+      [
+        "检测到凭据窃取",
+        "EDR 规则命中 lsass 异常访问，创建安全事件。"
+      ],
+      [
+        "完成证据关联",
+        "进程行为、内存访问、网络外联和 EDR 日志进入同一证据上下文。"
+      ],
+      [
+        "形成处置建议",
+        "AI 建议立即隔离终端并重置凭据，未执行高风险动作。"
+      ],
+      [
+        "进入 HITL 审批",
+        "处置路径暂停，等待操作员明确决策。"
+      ],
+      [
+        "操作员批准处置",
+        "批准范围锁定为目标终端隔离和凭据重置。"
+      ],
+      [
+        "样例执行回执成功",
+        "本地样例执行器返回隔离和重置已生效，处置结果标记为 executed。"
+      ],
+      [
+        "复测确认攻击失效",
+        "终端隔离生效，凭据外发已阻断。"
+      ],
+      [
+        "生成闭环摘要",
+        "审计摘要已生成，真实 EAT 签名链需单独验证。"
+      ]
+    ],
+    "auditId": "EAT-CRED-DEMO",
+    "executionReceiptId": "FIXTURE-EXEC-CRED",
+    "verificationReceiptId": "FIXTURE-VERIFY-CRED"
+  },
+  "xss": {
+    "case": {
+      "title": "XSS 跨站脚本攻击闭环",
+      "summary": "评论区检测到存储型 XSS，恶意脚本窃取用户会话 Cookie。",
+      "risk": "中风险",
+      "riskClass": "risk-medium",
+      "topologyTitle": "XSS 攻击与处置证据拓扑",
+      "topologyDesc": "展示攻击源、Web 应用、页面渲染、WAF、AI 智能体、HITL 审批、拦截策略和审计证据之间的状态路径。",
+      "topologyLabels": {
+        "nodes": {
+          "attacker": {
+            "label": "攻击源 IP",
+            "value": "203.0.113.77"
+          },
+          "web": {
+            "label": "门户 Web",
+            "value": "/search"
+          },
+          "database": {
+            "label": "页面渲染",
+            "value": "用户浏览器会话"
+          },
+          "xdr": {
+            "label": "检测 / WAF",
+            "value": "脚本特征 + Cookie 证据"
+          },
+          "policy": {
+            "label": "拦截策略",
+            "value": "拦截恶意脚本"
+          },
+          "ai": {
+            "label": "AI 安全智能体",
+            "value": "证据约束研判"
+          },
+          "hitl": {
+            "label": "HITL 审批",
+            "value": "保留人类控制权"
+          },
+          "audit": {
+            "label": "审计证据",
+            "value": "EAT 决策回执"
+          }
+        },
+        "edges": {
+          "telemetry": "遥测",
+          "evidence": "证据",
+          "recommendation": "建议",
+          "approval": "批准",
+          "verification": "复测",
+          "audit": "回执",
+          "attack-entry": "恶意脚本",
+          "asset-path": "脚本注入链路",
+          "enforcement": "拦截恶意脚本"
+        }
+      }
+    },
+    "stages": [
+      {
+        "status": "ready",
+        "summary": "系统处于正常基线，等待开始回放。",
+        "title": "未发现异常",
+        "detail": "评论提交和页面渲染均处于基线范围。",
+        "confidence": "基线",
+        "topology": "基线正常，尚未检测到攻击",
+        "evidence": [
+          [
+            "等待攻击样本",
+            "pending"
+          ],
+          [
+            "等待关联",
+            "pending"
+          ],
+          [
+            "等待确认",
+            "pending"
+          ],
+          [
+            "等待 RAG",
+            "pending"
+          ]
+        ],
+        "progressLabel": "正常运行",
+        "actions": [
+          {
+            "type": "thought",
+            "name": "基线监控",
+            "detail": "评论提交与页面渲染均处于基线，持续监测无异常"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "WAF 检测到评论内容包含脚本注入特征。",
+        "title": "发现存储型 XSS",
+        "detail": "Payload 为 <script>document.cookie</script>，攻击源为 192.0.2.66。",
+        "confidence": "70%",
+        "topology": "恶意评论已进入 Web 应用，WAF 产生告警",
+        "evidence": [
+          [
+            "<script> 载荷",
+            "active"
+          ],
+          [
+            "评论入库成功",
+            "active"
+          ],
+          [
+            "评论区 API",
+            "active"
+          ],
+          [
+            "等待 RAG",
+            "pending"
+          ]
+        ],
+        "progressLabel": "发现XSS",
+        "actions": [
+          {
+            "type": "thought",
+            "name": "研判思考",
+            "detail": "评论区检测到存储型 XSS，Payload 窃取 Cookie"
+          },
+          {
+            "type": "tool",
+            "name": "WAF 检测",
+            "detail": "命中 <script>document.cookie</script>，攻击源 192.0.2.66"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "评论载荷、渲染链路、影响范围和 WAF 日志已被关联。",
+        "title": "四类证据指向 XSS 落地",
+        "detail": "恶意评论已入库，输出点未做转义，可能窃取所有访客会话。",
+        "confidence": "86%",
+        "topology": "攻击路径与渲染证据完成关联，证据送达 AI 智能体",
+        "evidence": [
+          [
+            "<script> 载荷",
+            "complete"
+          ],
+          [
+            "输出未转义",
+            "complete"
+          ],
+          [
+            "影响所有访客",
+            "complete"
+          ],
+          [
+            "等待 RAG",
+            "active"
+          ]
+        ],
+        "progressLabel": "汇聚证据",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "RAG 检索",
+            "detail": "检索 XSS 处置基线，锚定知识证据"
+          },
+          {
+            "type": "rag",
+            "name": "CWE-79",
+            "detail": "命中跨站脚本（CWE-79）处置基线 3 条"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "AI 结合直接证据与 RAG 基线，判定为高置信存储型 XSS。",
+        "title": "中风险，建议规则拦截",
+        "detail": "建议下发 WAF 拦截规则并清理恶意评论。证据支持立即处置。",
+        "confidence": "92%",
+        "topology": "AI 已形成可解释建议，尚未触发任何处置",
+        "evidence": [
+          [
+            "<script> 载荷",
+            "complete"
+          ],
+          [
+            "输出未转义",
+            "complete"
+          ],
+          [
+            "影响所有访客",
+            "complete"
+          ],
+          [
+            "CWE-79 处置基线",
+            "complete"
+          ]
+        ],
+        "progressLabel": "AI 研判",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "SymPas code_scan",
+            "detail": "静态扫描评论渲染链路，确认未转义输出点"
+          },
+          {
+            "type": "rag",
+            "name": "CWE-79",
+            "detail": "引用 CWE-79 处置基线，建议规则拦截并清理"
+          },
+          {
+            "type": "cot",
+            "name": "可验证推理",
+            "detail": "恶意脚本入库 + 输出未转义 → 高置信存储型 XSS"
+          }
+        ]
+      },
+      {
+        "status": "awaiting-approval",
+        "summary": "中风险动作已停在 HITL 节点，等待操作员核对影响与回滚方式。",
+        "title": "等待人工批准",
+        "detail": "当前没有执行拦截。批准或拒绝必须由操作员明确提交。",
+        "confidence": "92%",
+        "topology": "处置路径暂停在 HITL，拦截策略尚未下发",
+        "evidence": [
+          [
+            "XSS 已确认",
+            "complete"
+          ],
+          [
+            "输出点已锁定",
+            "complete"
+          ],
+          [
+            "影响范围已核对",
+            "complete"
+          ],
+          [
+            "CWE-79 已引用",
+            "complete"
+          ]
+        ],
+        "progressLabel": "等待审批",
+        "actions": [
+          {
+            "type": "hitl",
+            "name": "HITL 审批",
+            "detail": "中风险动作暂停，等待操作员核对影响与回滚方式"
+          }
+        ]
+      },
+      {
+        "status": "approved",
+        "summary": "操作员已批准规则拦截和评论清理，动作仍处于未执行状态。",
+        "title": "已批准，等待执行",
+        "detail": "批准记录只授权目标为 192.0.2.66 的规则拦截和恶意评论清理。",
+        "confidence": "已批准",
+        "topology": "HITL 决策已记录，策略节点等待执行回执",
+        "evidence": [
+          [
+            "XSS 已确认",
+            "complete"
+          ],
+          [
+            "输出点已锁定",
+            "complete"
+          ],
+          [
+            "影响范围已核对",
+            "complete"
+          ],
+          [
+            "批准范围已锁定",
+            "complete"
+          ]
+        ],
+        "progressLabel": "人工批准",
+        "actions": [
+          {
+            "type": "hitl",
+            "name": "人工批准",
+            "detail": "批准规则拦截 192.0.2.66 并清理恶意评论"
+          }
+        ]
+      },
+      {
+        "status": "executed",
+        "summary": "样例执行器返回 WAF 拦截规则和评论清理已生效。",
+        "title": "拦截与清理已执行",
+        "detail": "处置成功来自样例执行回执，恶意评论已删除，WAF 规则已下发。",
+        "confidence": "已执行",
+        "topology": "拦截策略已下发，攻击源访问路径被阻断",
+        "evidence": [
+          [
+            "XSS 已确认",
+            "complete"
+          ],
+          [
+            "输出点已锁定",
+            "complete"
+          ],
+          [
+            "拦截回执已收到",
+            "complete"
+          ],
+          [
+            "等待复测",
+            "active"
+          ]
+        ],
+        "progressLabel": "规则拦截",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "规则拦截",
+            "detail": "下发 WAF 拦截规则并清理恶意评论，返回回执"
+          }
+        ]
+      },
+      {
+        "status": "verified",
+        "summary": "复测确认恶意脚本被拦截，恶意评论已清理。",
+        "title": "复测确认攻击失效",
+        "detail": "复测请求脚本被 WAF 拦截，评论已删除，处置结果可以进入审计收口。",
+        "confidence": "已验证",
+        "topology": "攻击路径中断，Web 与 WAF 确认没有残留",
+        "evidence": [
+          [
+            "复测脚本被拦截",
+            "complete"
+          ],
+          [
+            "评论已删除",
+            "complete"
+          ],
+          [
+            "规则仍在有效期",
+            "complete"
+          ],
+          [
+            "审计摘要待生成",
+            "active"
+          ]
+        ],
+        "progressLabel": "复测验证",
+        "actions": [
+          {
+            "type": "verify",
+            "name": "复测验证",
+            "detail": "复测确认脚本被拦截、评论已清理，攻击失效"
+          }
+        ]
+      },
+      {
+        "status": "completed",
+        "summary": "发现、研判、审批、处置和复测均已形成可追溯记录。",
+        "title": "可信安全事件闭环完成",
+        "detail": "审计摘要已生成，真实 EAT 会话仍需在审计页单独验证签名链。",
+        "confidence": "闭环",
+        "topology": "处置与验证证据已汇入审计节点，事件闭环完成",
+        "evidence": [
+          [
+            "复测脚本被拦截",
+            "complete"
+          ],
+          [
+            "评论已删除",
+            "complete"
+          ],
+          [
+            "拦截回执已关联",
+            "complete"
+          ],
+          [
+            "审计摘要已生成",
+            "complete"
+          ]
+        ],
+        "progressLabel": "审计闭环",
+        "actions": [
+          {
+            "type": "cot",
+            "name": "闭环推理",
+            "detail": "发现→研判→审批→处置→复测全程留痕，形成可信闭环"
+          },
+          {
+            "type": "tool",
+            "name": "EAT 审计",
+            "detail": "生成审计摘要，回执纳入 EAT 签名链"
+          }
+        ]
+      }
+    ],
+    "truthStates": {
+      "rejected": {
+        "terminal": true,
+        "confidence": "已拒绝",
+        "summary": "操作员拒绝规则拦截，系统保留证据但不执行处置。",
+        "title": "已拒绝，动作未执行",
+        "detail": "XSS 仍可能有效。可以补充证据、调整建议或重新发起审批。",
+        "topology": "操作员拒绝处置，路径在 HITL 节点中断，未执行拦截",
+        "control": [
+          "已拒绝",
+          "操作员拒绝请求，没有执行任何拦截动作。",
+          "is-failed"
+        ]
+      },
+      "expired": {
+        "terminal": true,
+        "confidence": "已过期",
+        "summary": "审批窗口已结束，系统没有执行处置动作。",
+        "title": "审批已过期",
+        "detail": "等待超时，处置请求自动失效。可以重新发起审批。",
+        "topology": "审批超时，处置路径在 HITL 节点中断",
+        "control": [
+          "已过期",
+          "审批窗口超时，未执行拦截动作。",
+          "is-failed"
+        ]
+      },
+      "execution_failed": {
+        "terminal": true,
+        "confidence": "执行失败",
+        "summary": "审批已经通过，但执行器返回失败。动作未完成，XSS 仍可能有效。",
+        "title": "执行失败，攻击未阻断",
+        "detail": "需要操作员检查执行器、目标与回滚状态；未收到成功回执前不得进入复测成功或闭环。",
+        "topology": "动作执行失败，处置路径在策略节点中断，XSS 仍可能有效",
+        "control": [
+          "执行失败",
+          "审批已通过，但执行器返回失败。攻击不视为已阻断。",
+          "is-failed"
+        ]
+      },
+      "verification_failed": {
+        "terminal": true,
+        "confidence": "复测失败",
+        "summary": "处置动作已有执行回执，但复测没有证明 XSS 失效，事件不能闭环。",
+        "title": "复测失败，尚未闭环",
+        "detail": "需要检查拦截生效范围并重新处置。执行成功不等于验证成功。",
+        "topology": "策略已执行，但复测未证明攻击失效，路径在验证节点中断",
+        "control": [
+          "复测失败",
+          "动作已执行，但复测证据不足以证明攻击失效。",
+          "is-failed"
+        ]
+      }
+    },
+    "stageAudit": [
+      [
+        "样例基线已就绪",
+        "场景回放已标注，尚未执行安全动作。"
+      ],
+      [
+        "检测到存储型 XSS",
+        "WAF 规则命中脚本注入载荷，创建安全事件。"
+      ],
+      [
+        "完成证据关联",
+        "评论载荷、渲染链路、影响范围和 WAF 日志进入同一证据上下文。"
+      ],
+      [
+        "形成处置建议",
+        "AI 建议规则拦截并清理恶意评论，未执行高风险动作。"
+      ],
+      [
+        "进入 HITL 审批",
+        "处置路径暂停，等待操作员明确决策。"
+      ],
+      [
+        "操作员批准处置",
+        "批准范围锁定为规则拦截和恶意评论清理。"
+      ],
+      [
+        "样例执行回执成功",
+        "本地样例执行器返回拦截和清理已生效，处置结果标记为 executed。"
+      ],
+      [
+        "复测确认攻击失效",
+        "脚本被拦截、评论已删除。"
+      ],
+      [
+        "生成闭环摘要",
+        "审计摘要已生成，真实 EAT 签名链需单独验证。"
+      ]
+    ],
+    "auditId": "EAT-XSS-DEMO",
+    "executionReceiptId": "FIXTURE-EXEC-XSS",
+    "verificationReceiptId": "FIXTURE-VERIFY-XSS"
+  },
+  "ransomware": {
+    "case": {
+      "title": "勒索软件攻击闭环",
+      "summary": "文件服务器检测到大规模文件加密，疑似 WannaCry 变种。",
+      "risk": "严重风险",
+      "riskClass": "risk-high",
+      "topologyTitle": "勒索软件攻击与处置证据拓扑",
+      "topologyDesc": "展示攻击源、文件服务器、共享目录、EDR、AI 智能体、HITL 审批、隔离策略和审计证据之间的状态路径。",
+      "topologyLabels": {
+        "nodes": {
+          "attacker": {
+            "label": "攻击源 IP",
+            "value": "91.240.118.5"
+          },
+          "web": {
+            "label": "文件服务器",
+            "value": "共享目录"
+          },
+          "database": {
+            "label": "共享目录",
+            "value": "核心资产"
+          },
+          "xdr": {
+            "label": "检测 / EDR",
+            "value": "加密行为 + 文件特征"
+          },
+          "policy": {
+            "label": "隔离策略",
+            "value": "隔离并断网"
+          },
+          "ai": {
+            "label": "AI 安全智能体",
+            "value": "证据约束研判"
+          },
+          "hitl": {
+            "label": "HITL 审批",
+            "value": "保留人类控制权"
+          },
+          "audit": {
+            "label": "审计证据",
+            "value": "EAT 决策回执"
+          }
+        },
+        "edges": {
+          "telemetry": "遥测",
+          "evidence": "证据",
+          "recommendation": "建议",
+          "approval": "批准",
+          "verification": "复测",
+          "audit": "回执",
+          "attack-entry": "勒索加密",
+          "asset-path": "加密扩散链路",
+          "enforcement": "隔离并断网"
+        }
+      }
+    },
+    "stages": [
+      {
+        "status": "ready",
+        "summary": "系统处于正常基线，等待开始回放。",
+        "title": "未发现异常",
+        "detail": "文件 I/O 和进程行为均处于基线范围。",
+        "confidence": "基线",
+        "topology": "基线正常，尚未检测到攻击",
+        "evidence": [
+          [
+            "等待攻击样本",
+            "pending"
+          ],
+          [
+            "等待关联",
+            "pending"
+          ],
+          [
+            "等待确认",
+            "pending"
+          ],
+          [
+            "等待 RAG",
+            "pending"
+          ]
+        ],
+        "progressLabel": "正常运行",
+        "actions": [
+          {
+            "type": "thought",
+            "name": "基线监控",
+            "detail": "文件服务器 I/O 与进程均处于基线，持续监测无异常"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "EDR 检测到文件服务器大规模加密行为。",
+        "title": "发现勒索软件",
+        "detail": "扩展名被批量修改为 .locked，勒索说明 README.txt 已落地。",
+        "confidence": "77%",
+        "topology": "恶意加密进程已运行，EDR 产生告警",
+        "evidence": [
+          [
+            "扩展名 .locked",
+            "active"
+          ],
+          [
+            "README.txt 落地",
+            "active"
+          ],
+          [
+            "文件服务器",
+            "active"
+          ],
+          [
+            "等待 RAG",
+            "pending"
+          ]
+        ],
+        "progressLabel": "发现加密",
+        "actions": [
+          {
+            "type": "thought",
+            "name": "研判思考",
+            "detail": "检测到大规模文件加密，疑似勒索软件"
+          },
+          {
+            "type": "tool",
+            "name": "EDR 检测",
+            "detail": "扩展名批量改 .locked，README.txt 落地，疑似 WannaCry 变种"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "加密行为、进程派生、横向传播和 EDR 日志已被关联。",
+        "title": "四类证据指向勒索攻击",
+        "detail": "检测到加密进程向共享目录扩散，疑似 WannaCry 变种。",
+        "confidence": "94%",
+        "topology": "攻击路径与文件系统证据完成关联，证据送达 AI 智能体",
+        "evidence": [
+          [
+            "扩展名 .locked",
+            "complete"
+          ],
+          [
+            "README.txt 落地",
+            "complete"
+          ],
+          [
+            "向共享目录扩散",
+            "complete"
+          ],
+          [
+            "等待 RAG",
+            "active"
+          ]
+        ],
+        "progressLabel": "汇聚证据",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "RAG 检索",
+            "detail": "检索勒索软件处置基线，锚定知识证据"
+          },
+          {
+            "type": "rag",
+            "name": "TA0040",
+            "detail": "命中影响力（TA0040）战术基线 3 条"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "AI 结合直接证据与 RAG 基线，判定为高置信勒索软件攻击。",
+        "title": "严重风险，建议隔离断网",
+        "detail": "建议立即隔离文件服务器并断开外联，阻断加密扩散。证据支持立即处置。",
+        "confidence": "96%",
+        "topology": "AI 已形成可解释建议，尚未触发任何处置",
+        "evidence": [
+          [
+            "扩展名 .locked",
+            "complete"
+          ],
+          [
+            "README.txt 落地",
+            "complete"
+          ],
+          [
+            "向共享目录扩散",
+            "complete"
+          ],
+          [
+            "TA0040 处置基线",
+            "complete"
+          ]
+        ],
+        "progressLabel": "AI 研判",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "cwe_classifier",
+            "detail": "关联加密进程与横向传播，判定勒索攻击"
+          },
+          {
+            "type": "rag",
+            "name": "TA0040",
+            "detail": "引用 TA0040 处置基线，建议隔离断网并备份"
+          },
+          {
+            "type": "cot",
+            "name": "可验证推理",
+            "detail": "批量加密 + 勒索说明落地 → 高置信勒索软件"
+          }
+        ]
+      },
+      {
+        "status": "awaiting-approval",
+        "summary": "严重风险动作已停在 HITL 节点，等待操作员核对影响与回滚方式。",
+        "title": "等待人工批准",
+        "detail": "当前没有执行隔离。批准或拒绝必须由操作员明确提交。",
+        "confidence": "96%",
+        "topology": "处置路径暂停在 HITL，隔离策略尚未下发",
+        "evidence": [
+          [
+            "勒索攻击已确认",
+            "complete"
+          ],
+          [
+            "扩散路径已锁定",
+            "complete"
+          ],
+          [
+            "影响范围已核对",
+            "complete"
+          ],
+          [
+            "TA0040 已引用",
+            "complete"
+          ]
+        ],
+        "progressLabel": "等待审批",
+        "actions": [
+          {
+            "type": "hitl",
+            "name": "HITL 审批",
+            "detail": "严重风险动作暂停，等待操作员核对影响与回滚方式"
+          }
+        ]
+      },
+      {
+        "status": "approved",
+        "summary": "操作员已批准文件服务器隔离和断网，动作仍处于未执行状态。",
+        "title": "已批准，等待执行",
+        "detail": "批准记录只授权文件服务器隔离和断开外联。",
+        "confidence": "已批准",
+        "topology": "HITL 决策已记录，策略节点等待执行回执",
+        "evidence": [
+          [
+            "勒索攻击已确认",
+            "complete"
+          ],
+          [
+            "扩散路径已锁定",
+            "complete"
+          ],
+          [
+            "影响范围已核对",
+            "complete"
+          ],
+          [
+            "批准范围已锁定",
+            "complete"
+          ]
+        ],
+        "progressLabel": "人工批准",
+        "actions": [
+          {
+            "type": "hitl",
+            "name": "人工批准",
+            "detail": "批准隔离受感染文件服务器并断开外联"
+          }
+        ]
+      },
+      {
+        "status": "executed",
+        "summary": "样例执行器返回文件服务器隔离和断网已生效。",
+        "title": "隔离断网已执行",
+        "detail": "处置成功来自样例执行回执，文件服务器已隔离，外联已断开。",
+        "confidence": "已执行",
+        "topology": "隔离策略已下发，加密扩散路径被阻断",
+        "evidence": [
+          [
+            "勒索攻击已确认",
+            "complete"
+          ],
+          [
+            "扩散路径已锁定",
+            "complete"
+          ],
+          [
+            "隔离回执已收到",
+            "complete"
+          ],
+          [
+            "等待复测",
+            "active"
+          ]
+        ],
+        "progressLabel": "隔离断网",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "隔离断网",
+            "detail": "文件服务器隔离断网，阻止加密扩散，返回回执"
+          }
+        ]
+      },
+      {
+        "status": "verified",
+        "summary": "复测确认加密停止、外联已阻断。",
+        "title": "复测确认攻击失效",
+        "detail": "复测确认加密进程已停止，外联阻断，处置结果可以进入审计收口。",
+        "confidence": "已验证",
+        "topology": "攻击路径中断，文件系统与网络确认没有残留",
+        "evidence": [
+          [
+            "加密已停止",
+            "complete"
+          ],
+          [
+            "外联已阻断",
+            "complete"
+          ],
+          [
+            "隔离仍在有效期",
+            "complete"
+          ],
+          [
+            "审计摘要待生成",
+            "active"
+          ]
+        ],
+        "progressLabel": "复测验证",
+        "actions": [
+          {
+            "type": "verify",
+            "name": "复测验证",
+            "detail": "复测确认加密停止、外联阻断，攻击失效"
+          }
+        ]
+      },
+      {
+        "status": "completed",
+        "summary": "发现、研判、审批、处置和复测均已形成可追溯记录。",
+        "title": "可信安全事件闭环完成",
+        "detail": "审计摘要已生成，真实 EAT 会话仍需在审计页单独验证签名链。",
+        "confidence": "闭环",
+        "topology": "处置与验证证据已汇入审计节点，事件闭环完成",
+        "evidence": [
+          [
+            "加密已停止",
+            "complete"
+          ],
+          [
+            "外联已阻断",
+            "complete"
+          ],
+          [
+            "隔离回执已关联",
+            "complete"
+          ],
+          [
+            "审计摘要已生成",
+            "complete"
+          ]
+        ],
+        "progressLabel": "审计闭环",
+        "actions": [
+          {
+            "type": "cot",
+            "name": "闭环推理",
+            "detail": "发现→研判→审批→处置→复测全程留痕，形成可信闭环"
+          },
+          {
+            "type": "tool",
+            "name": "EAT 审计",
+            "detail": "生成审计摘要，回执纳入 EAT 签名链"
+          }
+        ]
+      }
+    ],
+    "truthStates": {
+      "rejected": {
+        "terminal": true,
+        "confidence": "已拒绝",
+        "summary": "操作员拒绝隔离断网，系统保留证据但不执行处置。",
+        "title": "已拒绝，动作未执行",
+        "detail": "勒索软件仍可能扩散。可以补充证据、调整建议或重新发起审批。",
+        "topology": "操作员拒绝处置，路径在 HITL 节点中断，未执行隔离",
+        "control": [
+          "已拒绝",
+          "操作员拒绝请求，没有执行任何隔离动作。",
+          "is-failed"
+        ]
+      },
+      "expired": {
+        "terminal": true,
+        "confidence": "已过期",
+        "summary": "审批窗口已结束，系统没有执行处置动作。",
+        "title": "审批已过期",
+        "detail": "等待超时，处置请求自动失效。可以重新发起审批。",
+        "topology": "审批超时，处置路径在 HITL 节点中断",
+        "control": [
+          "已过期",
+          "审批窗口超时，未执行隔离动作。",
+          "is-failed"
+        ]
+      },
+      "execution_failed": {
+        "terminal": true,
+        "confidence": "执行失败",
+        "summary": "审批已经通过，但执行器返回失败。动作未完成，勒索软件仍可能扩散。",
+        "title": "执行失败，攻击未阻断",
+        "detail": "需要操作员检查执行器、目标与回滚状态；未收到成功回执前不得进入复测成功或闭环。",
+        "topology": "动作执行失败，处置路径在策略节点中断，勒索软件仍可能扩散",
+        "control": [
+          "执行失败",
+          "审批已通过，但执行器返回失败。攻击不视为已阻断。",
+          "is-failed"
+        ]
+      },
+      "verification_failed": {
+        "terminal": true,
+        "confidence": "复测失败",
+        "summary": "处置动作已有执行回执，但复测没有证明加密停止，事件不能闭环。",
+        "title": "复测失败，尚未闭环",
+        "detail": "需要检查隔离生效范围并重新处置。执行成功不等于验证成功。",
+        "topology": "策略已执行，但复测未证明攻击失效，路径在验证节点中断",
+        "control": [
+          "复测失败",
+          "动作已执行，但复测证据不足以证明攻击失效。",
+          "is-failed"
+        ]
+      }
+    },
+    "stageAudit": [
+      [
+        "样例基线已就绪",
+        "场景回放已标注，尚未执行安全动作。"
+      ],
+      [
+        "检测到勒索软件",
+        "EDR 规则命中大规模文件加密行为，创建安全事件。"
+      ],
+      [
+        "完成证据关联",
+        "加密行为、进程派生、横向传播和 EDR 日志进入同一证据上下文。"
+      ],
+      [
+        "形成处置建议",
+        "AI 建议隔离断网阻断加密扩散，未执行高风险动作。"
+      ],
+      [
+        "进入 HITL 审批",
+        "处置路径暂停，等待操作员明确决策。"
+      ],
+      [
+        "操作员批准处置",
+        "批准范围锁定为文件服务器隔离和断开外联。"
+      ],
+      [
+        "样例执行回执成功",
+        "本地样例执行器返回隔离和断网已生效，处置结果标记为 executed。"
+      ],
+      [
+        "复测确认攻击失效",
+        "加密已停止、外联已阻断。"
+      ],
+      [
+        "生成闭环摘要",
+        "审计摘要已生成，真实 EAT 签名链需单独验证。"
+      ]
+    ],
+    "auditId": "EAT-RANSOM-DEMO",
+    "executionReceiptId": "FIXTURE-EXEC-RANSOM",
+    "verificationReceiptId": "FIXTURE-VERIFY-RANSOM"
+  },
+  "ddos": {
+    "case": {
+      "title": "DDoS 拒绝服务攻击闭环",
+      "summary": "Web 服务遭大规模分布式请求冲击，响应超时。",
+      "risk": "高风险",
+      "riskClass": "risk-high",
+      "topologyTitle": "DDoS 攻击与处置证据拓扑",
+      "topologyDesc": "展示攻击源、Web 服务、流量入口、DDoS 防护、AI 智能体、HITL 审批、清洗策略和审计证据之间的状态路径。",
+      "topologyLabels": {
+        "nodes": {
+          "attacker": {
+            "label": "攻击源",
+            "value": "僵尸网络集群"
+          },
+          "web": {
+            "label": "Web 服务",
+            "value": "流量入口"
+          },
+          "database": {
+            "label": "流量入口",
+            "value": "核心资产"
+          },
+          "xdr": {
+            "label": "检测 / DDoS 防护",
+            "value": "流量 + SYN 特征"
+          },
+          "policy": {
+            "label": "清洗策略",
+            "value": "清洗攻击流量"
+          },
+          "ai": {
+            "label": "AI 安全智能体",
+            "value": "证据约束研判"
+          },
+          "hitl": {
+            "label": "HITL 审批",
+            "value": "保留人类控制权"
+          },
+          "audit": {
+            "label": "审计证据",
+            "value": "EAT 决策回执"
+          }
+        },
+        "edges": {
+          "telemetry": "遥测",
+          "evidence": "证据",
+          "recommendation": "建议",
+          "approval": "批准",
+          "verification": "复测",
+          "audit": "回执",
+          "attack-entry": "洪水流量",
+          "asset-path": "拥塞链路",
+          "enforcement": "清洗攻击流量"
+        }
+      }
+    },
+    "stages": [
+      {
+        "status": "ready",
+        "summary": "系统处于正常基线，等待开始回放。",
+        "title": "未发现异常",
+        "detail": "请求量和 CPU 均处于基线范围。",
+        "confidence": "基线",
+        "topology": "基线正常，尚未检测到攻击",
+        "evidence": [
+          [
+            "等待攻击样本",
+            "pending"
+          ],
+          [
+            "等待关联",
+            "pending"
+          ],
+          [
+            "等待确认",
+            "pending"
+          ],
+          [
+            "等待 RAG",
+            "pending"
+          ]
+        ],
+        "progressLabel": "正常运行",
+        "actions": [
+          {
+            "type": "thought",
+            "name": "基线监控",
+            "detail": "服务请求量与 CPU 均处于基线，持续监测无异常"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "流量监测检测到请求量在 5 分钟内暴涨。",
+        "title": "发现 DDoS 攻击",
+        "detail": "5 分钟 50 万请求、来自 2000+ IP，CPU 达 95%，服务响应超时。",
+        "confidence": "74%",
+        "topology": "恶意流量已到达 Web 服务，流量监测产生告警",
+        "evidence": [
+          [
+            "50 万请求/5min",
+            "active"
+          ],
+          [
+            "2000+ 源 IP",
+            "active"
+          ],
+          [
+            "CPU 95%",
+            "active"
+          ],
+          [
+            "等待 RAG",
+            "pending"
+          ]
+        ],
+        "progressLabel": "发现攻击",
+        "actions": [
+          {
+            "type": "thought",
+            "name": "研判思考",
+            "detail": "5 分钟 50 万请求、2000+ IP，疑似 DDoS"
+          },
+          {
+            "type": "tool",
+            "name": "流量监测",
+            "detail": "CPU 95%、响应超时，判定为分布式拒绝服务"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "流量特征、源 IP 分布、资源占用和防护日志已被关联。",
+        "title": "四类证据指向 DDoS",
+        "detail": "请求来源高度分散、无统一模式，判定为分布式拒绝服务。",
+        "confidence": "91%",
+        "topology": "攻击路径与流量证据完成关联，证据送达 AI 智能体",
+        "evidence": [
+          [
+            "50 万请求/5min",
+            "complete"
+          ],
+          [
+            "2000+ 源 IP",
+            "complete"
+          ],
+          [
+            "CPU 95%",
+            "complete"
+          ],
+          [
+            "等待 RAG",
+            "active"
+          ]
+        ],
+        "progressLabel": "汇聚证据",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "RAG 检索",
+            "detail": "检索 DDoS 处置基线，锚定知识证据"
+          },
+          {
+            "type": "rag",
+            "name": "CWE-400",
+            "detail": "命中资源耗尽（CWE-400）处置基线 3 条"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "AI 结合直接证据与 RAG 基线，判定为高置信 DDoS 攻击。",
+        "title": "高风险，建议流量清洗",
+        "detail": "建议启用流量清洗并限流，恢复服务可用性。证据支持立即处置。",
+        "confidence": "93%",
+        "topology": "AI 已形成可解释建议，尚未触发任何处置",
+        "evidence": [
+          [
+            "50 万请求/5min",
+            "complete"
+          ],
+          [
+            "2000+ 源 IP",
+            "complete"
+          ],
+          [
+            "CPU 95%",
+            "complete"
+          ],
+          [
+            "CWE-400 处置基线",
+            "complete"
+          ]
+        ],
+        "progressLabel": "AI 研判",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "cwe_classifier",
+            "detail": "关联流量特征与源 IP 分布，判定 DDoS 攻击"
+          },
+          {
+            "type": "rag",
+            "name": "CWE-400",
+            "detail": "引用 CWE-400 处置基线，建议流量清洗"
+          },
+          {
+            "type": "cot",
+            "name": "可验证推理",
+            "detail": "请求暴涨 + 多源 IP + 资源耗尽 → 高置信 DDoS"
+          }
+        ]
+      },
+      {
+        "status": "awaiting-approval",
+        "summary": "高风险动作已停在 HITL 节点，等待操作员核对影响与回滚方式。",
+        "title": "等待人工批准",
+        "detail": "当前没有执行清洗。批准或拒绝必须由操作员明确提交。",
+        "confidence": "93%",
+        "topology": "处置路径暂停在 HITL，清洗策略尚未下发",
+        "evidence": [
+          [
+            "DDoS 已确认",
+            "complete"
+          ],
+          [
+            "攻击源已识别",
+            "complete"
+          ],
+          [
+            "影响范围已核对",
+            "complete"
+          ],
+          [
+            "CWE-400 已引用",
+            "complete"
+          ]
+        ],
+        "progressLabel": "等待审批",
+        "actions": [
+          {
+            "type": "hitl",
+            "name": "HITL 审批",
+            "detail": "高风险动作暂停，等待操作员核对影响与回滚方式"
+          }
+        ]
+      },
+      {
+        "status": "approved",
+        "summary": "操作员已批准流量清洗和限流，动作仍处于未执行状态。",
+        "title": "已批准，等待执行",
+        "detail": "批准记录只授权流量清洗和限流策略。",
+        "confidence": "已批准",
+        "topology": "HITL 决策已记录，策略节点等待执行回执",
+        "evidence": [
+          [
+            "DDoS 已确认",
+            "complete"
+          ],
+          [
+            "攻击源已识别",
+            "complete"
+          ],
+          [
+            "影响范围已核对",
+            "complete"
+          ],
+          [
+            "批准范围已锁定",
+            "complete"
+          ]
+        ],
+        "progressLabel": "人工批准",
+        "actions": [
+          {
+            "type": "hitl",
+            "name": "人工批准",
+            "detail": "批准启用流量清洗并限流，锁定清洗范围"
+          }
+        ]
+      },
+      {
+        "status": "executed",
+        "summary": "样例执行器返回流量清洗和限流已生效。",
+        "title": "流量清洗已执行",
+        "detail": "处置成功来自样例执行回执，清洗策略已下发，限流已启用。",
+        "confidence": "已执行",
+        "topology": "清洗策略已下发，攻击流量被分流",
+        "evidence": [
+          [
+            "DDoS 已确认",
+            "complete"
+          ],
+          [
+            "攻击源已识别",
+            "complete"
+          ],
+          [
+            "清洗回执已收到",
+            "complete"
+          ],
+          [
+            "等待复测",
+            "active"
+          ]
+        ],
+        "progressLabel": "流量清洗",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "流量清洗",
+            "detail": "启用流量清洗并下发限流策略，返回回执"
+          }
+        ]
+      },
+      {
+        "status": "verified",
+        "summary": "复测确认流量回落、服务恢复响应。",
+        "title": "复测确认攻击失效",
+        "detail": "复测确认流量回落至基线，服务恢复响应，处置结果可以进入审计收口。",
+        "confidence": "已验证",
+        "topology": "攻击路径中断，流量与服务确认恢复",
+        "evidence": [
+          [
+            "流量回落",
+            "complete"
+          ],
+          [
+            "服务恢复响应",
+            "complete"
+          ],
+          [
+            "清洗仍在有效期",
+            "complete"
+          ],
+          [
+            "审计摘要待生成",
+            "active"
+          ]
+        ],
+        "progressLabel": "复测验证",
+        "actions": [
+          {
+            "type": "verify",
+            "name": "复测验证",
+            "detail": "复测确认流量回落、服务恢复响应，攻击失效"
+          }
+        ]
+      },
+      {
+        "status": "completed",
+        "summary": "发现、研判、审批、处置和复测均已形成可追溯记录。",
+        "title": "可信安全事件闭环完成",
+        "detail": "审计摘要已生成，真实 EAT 会话仍需在审计页单独验证签名链。",
+        "confidence": "闭环",
+        "topology": "处置与验证证据已汇入审计节点，事件闭环完成",
+        "evidence": [
+          [
+            "流量回落",
+            "complete"
+          ],
+          [
+            "服务恢复响应",
+            "complete"
+          ],
+          [
+            "清洗回执已关联",
+            "complete"
+          ],
+          [
+            "审计摘要已生成",
+            "complete"
+          ]
+        ],
+        "progressLabel": "审计闭环",
+        "actions": [
+          {
+            "type": "cot",
+            "name": "闭环推理",
+            "detail": "发现→研判→审批→处置→复测全程留痕，形成可信闭环"
+          },
+          {
+            "type": "tool",
+            "name": "EAT 审计",
+            "detail": "生成审计摘要，回执纳入 EAT 签名链"
+          }
+        ]
+      }
+    ],
+    "truthStates": {
+      "rejected": {
+        "terminal": true,
+        "confidence": "已拒绝",
+        "summary": "操作员拒绝流量清洗，系统保留证据但不执行处置。",
+        "title": "已拒绝，动作未执行",
+        "detail": "DDoS 仍可能影响服务。可以补充证据、调整建议或重新发起审批。",
+        "topology": "操作员拒绝处置，路径在 HITL 节点中断，未执行清洗",
+        "control": [
+          "已拒绝",
+          "操作员拒绝请求，没有执行任何清洗动作。",
+          "is-failed"
+        ]
+      },
+      "expired": {
+        "terminal": true,
+        "confidence": "已过期",
+        "summary": "审批窗口已结束，系统没有执行处置动作。",
+        "title": "审批已过期",
+        "detail": "等待超时，处置请求自动失效。可以重新发起审批。",
+        "topology": "审批超时，处置路径在 HITL 节点中断",
+        "control": [
+          "已过期",
+          "审批窗口超时，未执行清洗动作。",
+          "is-failed"
+        ]
+      },
+      "execution_failed": {
+        "terminal": true,
+        "confidence": "执行失败",
+        "summary": "审批已经通过，但执行器返回失败。动作未完成，DDoS 仍可能影响服务。",
+        "title": "执行失败，攻击未阻断",
+        "detail": "需要操作员检查执行器、目标与回滚状态；未收到成功回执前不得进入复测成功或闭环。",
+        "topology": "动作执行失败，处置路径在策略节点中断，DDoS 仍可能影响服务",
+        "control": [
+          "执行失败",
+          "审批已通过，但执行器返回失败。攻击不视为已阻断。",
+          "is-failed"
+        ]
+      },
+      "verification_failed": {
+        "terminal": true,
+        "confidence": "复测失败",
+        "summary": "处置动作已有执行回执，但复测没有证明流量回落，事件不能闭环。",
+        "title": "复测失败，尚未闭环",
+        "detail": "需要检查清洗生效范围并重新处置。执行成功不等于验证成功。",
+        "topology": "策略已执行，但复测未证明攻击失效，路径在验证节点中断",
+        "control": [
+          "复测失败",
+          "动作已执行，但复测证据不足以证明攻击失效。",
+          "is-failed"
+        ]
+      }
+    },
+    "stageAudit": [
+      [
+        "样例基线已就绪",
+        "场景回放已标注，尚未执行安全动作。"
+      ],
+      [
+        "检测到 DDoS",
+        "流量监测规则命中请求量暴涨，创建安全事件。"
+      ],
+      [
+        "完成证据关联",
+        "流量特征、源 IP 分布、资源占用和防护日志进入同一证据上下文。"
+      ],
+      [
+        "形成处置建议",
+        "AI 建议启用流量清洗并限流，未执行高风险动作。"
+      ],
+      [
+        "进入 HITL 审批",
+        "处置路径暂停，等待操作员明确决策。"
+      ],
+      [
+        "操作员批准处置",
+        "批准范围锁定为流量清洗和限流策略。"
+      ],
+      [
+        "样例执行回执成功",
+        "本地样例执行器返回清洗和限流已生效，处置结果标记为 executed。"
+      ],
+      [
+        "复测确认攻击失效",
+        "流量回落、服务恢复响应。"
+      ],
+      [
+        "生成闭环摘要",
+        "审计摘要已生成，真实 EAT 签名链需单独验证。"
+      ]
+    ],
+    "auditId": "EAT-DDOS-DEMO",
+    "executionReceiptId": "FIXTURE-EXEC-DDOS",
+    "verificationReceiptId": "FIXTURE-VERIFY-DDOS"
+  },
+  "phishing": {
+    "case": {
+      "title": "钓鱼邮件攻击闭环",
+      "summary": "邮件网关检测到伪造发件人的钓鱼邮件，附件含恶意宏。",
+      "risk": "中风险",
+      "riskClass": "risk-medium",
+      "topologyTitle": "钓鱼攻击与处置证据拓扑",
+      "topologyDesc": "展示攻击源、邮件网关、收件终端、邮件安全、AI 智能体、HITL 审批、拦截策略和审计证据之间的状态路径。",
+      "topologyLabels": {
+        "nodes": {
+          "attacker": {
+            "label": "攻击源",
+            "value": "伪造发件域"
+          },
+          "web": {
+            "label": "邮件网关",
+            "value": "恶意附件"
+          },
+          "database": {
+            "label": "邮件网关",
+            "value": "核心资产"
+          },
+          "xdr": {
+            "label": "检测 / 邮件安全",
+            "value": "宏 + 伪造发件特征"
+          },
+          "policy": {
+            "label": "拦截策略",
+            "value": "拦截恶意邮件"
+          },
+          "ai": {
+            "label": "AI 安全智能体",
+            "value": "证据约束研判"
+          },
+          "hitl": {
+            "label": "HITL 审批",
+            "value": "保留人类控制权"
+          },
+          "audit": {
+            "label": "审计证据",
+            "value": "EAT 决策回执"
+          }
+        },
+        "edges": {
+          "telemetry": "遥测",
+          "evidence": "证据",
+          "recommendation": "建议",
+          "approval": "批准",
+          "verification": "复测",
+          "audit": "回执",
+          "attack-entry": "恶意邮件",
+          "asset-path": "投递链路",
+          "enforcement": "拦截恶意邮件"
+        }
+      }
+    },
+    "stages": [
+      {
+        "status": "ready",
+        "summary": "系统处于正常基线，等待开始回放。",
+        "title": "未发现异常",
+        "detail": "邮件投递和附件扫描均处于基线范围。",
+        "confidence": "基线",
+        "topology": "基线正常，尚未检测到攻击",
+        "evidence": [
+          [
+            "等待攻击样本",
+            "pending"
+          ],
+          [
+            "等待关联",
+            "pending"
+          ],
+          [
+            "等待确认",
+            "pending"
+          ],
+          [
+            "等待 RAG",
+            "pending"
+          ]
+        ],
+        "progressLabel": "正常运行",
+        "actions": [
+          {
+            "type": "thought",
+            "name": "基线监控",
+            "detail": "邮件投递与附件扫描均处于基线，持续监测无异常"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "邮件网关检测到伪造发件人的钓鱼邮件。",
+        "title": "发现钓鱼邮件",
+        "detail": "附件 invoice.xlsm 包含恶意宏，收件人覆盖财务部门全体成员。",
+        "confidence": "68%",
+        "topology": "恶意邮件已到达邮件网关，网关产生告警",
+        "evidence": [
+          [
+            "伪造发件人",
+            "active"
+          ],
+          [
+            "invoice.xlsm 恶意宏",
+            "active"
+          ],
+          [
+            "财务部门收件",
+            "active"
+          ],
+          [
+            "等待 RAG",
+            "pending"
+          ]
+        ],
+        "progressLabel": "发现钓鱼",
+        "actions": [
+          {
+            "type": "thought",
+            "name": "研判思考",
+            "detail": "检测到伪造发件人，附件含恶意宏文档"
+          },
+          {
+            "type": "tool",
+            "name": "邮件网关",
+            "detail": "命中 invoice.xlsm 恶意宏特征，覆盖财务部门全体"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "发件人、附件、收件范围和邮件日志已被关联。",
+        "title": "四类证据指向钓鱼攻击",
+        "detail": "发件人域与真实域高度相似，恶意宏文档定向投递财务部门。",
+        "confidence": "88%",
+        "topology": "攻击路径与邮件证据完成关联，证据送达 AI 智能体",
+        "evidence": [
+          [
+            "伪造发件人",
+            "complete"
+          ],
+          [
+            "invoice.xlsm 恶意宏",
+            "complete"
+          ],
+          [
+            "财务部门收件",
+            "complete"
+          ],
+          [
+            "等待 RAG",
+            "active"
+          ]
+        ],
+        "progressLabel": "汇聚证据",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "RAG 检索",
+            "detail": "检索钓鱼邮件处置基线，锚定知识证据"
+          },
+          {
+            "type": "rag",
+            "name": "CWE-1566",
+            "detail": "命中网络钓鱼（CWE-1566）处置基线 3 条"
+          }
+        ]
+      },
+      {
+        "status": "running",
+        "summary": "AI 结合直接证据与 RAG 基线，判定为高置信钓鱼攻击。",
+        "title": "中风险，建议拦截邮件",
+        "detail": "建议拦截并隔离恶意邮件，通知收件人。证据支持立即处置。",
+        "confidence": "91%",
+        "topology": "AI 已形成可解释建议，尚未触发任何处置",
+        "evidence": [
+          [
+            "伪造发件人",
+            "complete"
+          ],
+          [
+            "invoice.xlsm 恶意宏",
+            "complete"
+          ],
+          [
+            "财务部门收件",
+            "complete"
+          ],
+          [
+            "CWE-1566 处置基线",
+            "complete"
+          ]
+        ],
+        "progressLabel": "AI 研判",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "cwe_classifier",
+            "detail": "关联伪造发件人、恶意附件与收件范围，判定钓鱼"
+          },
+          {
+            "type": "rag",
+            "name": "CWE-1635",
+            "detail": "引用恶意宏（CWE-1635）处置基线，建议拦截"
+          },
+          {
+            "type": "cot",
+            "name": "可验证推理",
+            "detail": "伪造发件人 + 恶意宏 + 定向投递 → 高置信钓鱼"
+          }
+        ]
+      },
+      {
+        "status": "awaiting-approval",
+        "summary": "中风险动作已停在 HITL 节点，等待操作员核对影响与回滚方式。",
+        "title": "等待人工批准",
+        "detail": "当前没有执行拦截。批准或拒绝必须由操作员明确提交。",
+        "confidence": "91%",
+        "topology": "处置路径暂停在 HITL，拦截策略尚未下发",
+        "evidence": [
+          [
+            "钓鱼邮件已确认",
+            "complete"
+          ],
+          [
+            "收件范围已锁定",
+            "complete"
+          ],
+          [
+            "影响范围已核对",
+            "complete"
+          ],
+          [
+            "CWE-1566 已引用",
+            "complete"
+          ]
+        ],
+        "progressLabel": "等待审批",
+        "actions": [
+          {
+            "type": "hitl",
+            "name": "HITL 审批",
+            "detail": "中风险动作暂停，等待操作员核对影响与回滚方式"
+          }
+        ]
+      },
+      {
+        "status": "approved",
+        "summary": "操作员已批准拦截恶意邮件并通知收件人，动作仍处于未执行状态。",
+        "title": "已批准，等待执行",
+        "detail": "批准记录只授权拦截恶意邮件并通知财务部门。",
+        "confidence": "已批准",
+        "topology": "HITL 决策已记录，策略节点等待执行回执",
+        "evidence": [
+          [
+            "钓鱼邮件已确认",
+            "complete"
+          ],
+          [
+            "收件范围已锁定",
+            "complete"
+          ],
+          [
+            "影响范围已核对",
+            "complete"
+          ],
+          [
+            "批准范围已锁定",
+            "complete"
+          ]
+        ],
+        "progressLabel": "人工批准",
+        "actions": [
+          {
+            "type": "hitl",
+            "name": "人工批准",
+            "detail": "批准拦截恶意邮件并通知财务部门，锁定范围"
+          }
+        ]
+      },
+      {
+        "status": "executed",
+        "summary": "样例执行器返回恶意邮件拦截和附件隔离已生效。",
+        "title": "拦截与隔离已执行",
+        "detail": "处置成功来自样例执行回执，恶意邮件已拦截，附件已隔离。",
+        "confidence": "已执行",
+        "topology": "拦截策略已下发，恶意邮件投递路径被阻断",
+        "evidence": [
+          [
+            "钓鱼邮件已确认",
+            "complete"
+          ],
+          [
+            "收件范围已锁定",
+            "complete"
+          ],
+          [
+            "拦截回执已收到",
+            "complete"
+          ],
+          [
+            "等待复测",
+            "active"
+          ]
+        ],
+        "progressLabel": "拦截邮件",
+        "actions": [
+          {
+            "type": "tool",
+            "name": "拦截邮件",
+            "detail": "邮件网关拦截并隔离恶意附件，返回回执"
+          }
+        ]
+      },
+      {
+        "status": "verified",
+        "summary": "复测确认恶意邮件被拦截、附件已隔离。",
+        "title": "复测确认攻击失效",
+        "detail": "复测确认邮件已拦截，附件已隔离，处置结果可以进入审计收口。",
+        "confidence": "已验证",
+        "topology": "攻击路径中断，邮件与附件确认没有残留",
+        "evidence": [
+          [
+            "邮件已拦截",
+            "complete"
+          ],
+          [
+            "附件已隔离",
+            "complete"
+          ],
+          [
+            "拦截仍在有效期",
+            "complete"
+          ],
+          [
+            "审计摘要待生成",
+            "active"
+          ]
+        ],
+        "progressLabel": "复测验证",
+        "actions": [
+          {
+            "type": "verify",
+            "name": "复测验证",
+            "detail": "复测确认邮件已拦截、附件已隔离，攻击失效"
+          }
+        ]
+      },
+      {
+        "status": "completed",
+        "summary": "发现、研判、审批、处置和复测均已形成可追溯记录。",
+        "title": "可信安全事件闭环完成",
+        "detail": "审计摘要已生成，真实 EAT 会话仍需在审计页单独验证签名链。",
+        "confidence": "闭环",
+        "topology": "处置与验证证据已汇入审计节点，事件闭环完成",
+        "evidence": [
+          [
+            "邮件已拦截",
+            "complete"
+          ],
+          [
+            "附件已隔离",
+            "complete"
+          ],
+          [
+            "拦截回执已关联",
+            "complete"
+          ],
+          [
+            "审计摘要已生成",
+            "complete"
+          ]
+        ],
+        "progressLabel": "审计闭环",
+        "actions": [
+          {
+            "type": "cot",
+            "name": "闭环推理",
+            "detail": "发现→研判→审批→处置→复测全程留痕，形成可信闭环"
+          },
+          {
+            "type": "tool",
+            "name": "EAT 审计",
+            "detail": "生成审计摘要，回执纳入 EAT 签名链"
+          }
+        ]
+      }
+    ],
+    "truthStates": {
+      "rejected": {
+        "terminal": true,
+        "confidence": "已拒绝",
+        "summary": "操作员拒绝拦截邮件，系统保留证据但不执行处置。",
+        "title": "已拒绝，动作未执行",
+        "detail": "钓鱼邮件仍可能被打开。可以补充证据、调整建议或重新发起审批。",
+        "topology": "操作员拒绝处置，路径在 HITL 节点中断，未执行拦截",
+        "control": [
+          "已拒绝",
+          "操作员拒绝请求，没有执行任何拦截动作。",
+          "is-failed"
+        ]
+      },
+      "expired": {
+        "terminal": true,
+        "confidence": "已过期",
+        "summary": "审批窗口已结束，系统没有执行处置动作。",
+        "title": "审批已过期",
+        "detail": "等待超时，处置请求自动失效。可以重新发起审批。",
+        "topology": "审批超时，处置路径在 HITL 节点中断",
+        "control": [
+          "已过期",
+          "审批窗口超时，未执行拦截动作。",
+          "is-failed"
+        ]
+      },
+      "execution_failed": {
+        "terminal": true,
+        "confidence": "执行失败",
+        "summary": "审批已经通过，但执行器返回失败。动作未完成，钓鱼邮件仍可能被打开。",
+        "title": "执行失败，攻击未阻断",
+        "detail": "需要操作员检查执行器、目标与回滚状态；未收到成功回执前不得进入复测成功或闭环。",
+        "topology": "动作执行失败，处置路径在策略节点中断，钓鱼邮件仍可能被打开",
+        "control": [
+          "执行失败",
+          "审批已通过，但执行器返回失败。攻击不视为已阻断。",
+          "is-failed"
+        ]
+      },
+      "verification_failed": {
+        "terminal": true,
+        "confidence": "复测失败",
+        "summary": "处置动作已有执行回执，但复测没有证明邮件被拦截，事件不能闭环。",
+        "title": "复测失败，尚未闭环",
+        "detail": "需要检查拦截生效范围并重新处置。执行成功不等于验证成功。",
+        "topology": "策略已执行，但复测未证明攻击失效，路径在验证节点中断",
+        "control": [
+          "复测失败",
+          "动作已执行，但复测证据不足以证明攻击失效。",
+          "is-failed"
+        ]
+      }
+    },
+    "stageAudit": [
+      [
+        "样例基线已就绪",
+        "场景回放已标注，尚未执行安全动作。"
+      ],
+      [
+        "检测到钓鱼邮件",
+        "邮件网关规则命中伪造发件人和恶意宏，创建安全事件。"
+      ],
+      [
+        "完成证据关联",
+        "发件人、附件、收件范围和邮件日志进入同一证据上下文。"
+      ],
+      [
+        "形成处置建议",
+        "AI 建议拦截恶意邮件并通知收件人，未执行高风险动作。"
+      ],
+      [
+        "进入 HITL 审批",
+        "处置路径暂停，等待操作员明确决策。"
+      ],
+      [
+        "操作员批准处置",
+        "批准范围锁定为拦截恶意邮件并通知财务部门。"
+      ],
+      [
+        "样例执行回执成功",
+        "本地样例执行器返回拦截和隔离已生效，处置结果标记为 executed。"
+      ],
+      [
+        "复测确认攻击失效",
+        "邮件已拦截、附件已隔离。"
+      ],
+      [
+        "生成闭环摘要",
+        "审计摘要已生成，真实 EAT 签名链需单独验证。"
+      ]
+    ],
+    "auditId": "EAT-PHISH-DEMO",
+    "executionReceiptId": "FIXTURE-EXEC-PHISH",
+    "verificationReceiptId": "FIXTURE-VERIFY-PHISH"
+  }
+}

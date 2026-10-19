@@ -1,0 +1,1928 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark" data-interface-mode="home">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="description" content="鉴真 AI 安全运营超级智能体，用证据驱动研判、审批、处置与复核。">
+    <title>鉴真 - AI安全运营超级智能体</title>
+    <link rel="icon" href="images/logo.png?v=20260804" type="image/png">
+    <link rel="alternate icon" href="images/logo.png?v=20260804">
+    <link rel="shortcut icon" href="images/logo.png?v=20260804">
+    <link rel="stylesheet" href="css/dashboard.css?v=20260901f">
+    <link rel="stylesheet" href="css/xdr-monitor.css?v=20260901b">
+</head>
+<body>
+    <a class="skip-main" href="#main">跳到主要内容</a>
+
+    <div class="app-shell">
+        <header class="topbar">
+            <div class="topbar-brand">
+                <button
+                    class="nav-toggle"
+                    id="nav-toggle"
+                    type="button"
+                    aria-controls="primary-sidebar"
+                    aria-expanded="false"
+                >菜单</button>
+                <a class="brand" href="./" data-case-demo aria-label="鉴真 · 返回首页">
+                    <span class="brand-seal" aria-hidden="true">
+                        <img src="images/logo.png?v=20260804" alt="鉴真" width="48" height="48" style="border-radius:10px;object-fit:cover;">
+                    </span>
+                    <span class="brand-copy">
+                        <strong>鉴真</strong>
+                        <span>AI Security Operations Super Agent</span>
+                    </span>
+                </a>
+            </div>
+
+            <div class="topbar-context" aria-label="当前演示环境">
+                <span class="context-label">数据来源</span>
+                <strong id="top-source">官方样例回放</strong>
+            </div>
+
+            <div class="topbar-actions">
+                <div class="interface-switch" role="group" aria-label="界面模式">
+                    <button
+                        class="interface-switch-button is-active"
+                        type="button"
+                        data-interface-target="workbench"
+                        aria-pressed="true"
+                    >能力工作台</button>
+                    <button
+                        class="interface-switch-button"
+                        type="button"
+                        data-interface-target="judge"
+                        aria-pressed="false"
+                    >过程展示</button>
+                </div>
+                <button class="connection-state" id="connection-button" type="button">
+                    <span class="semantic-dot" id="connection-dot" aria-hidden="true"></span>
+                    <span id="connection-label">正在检查服务</span>
+                </button>
+                <button class="button button-quiet" id="theme-toggle" type="button">深色模式</button>
+            </div>
+        </header>
+
+        <div class="workspace">
+            <aside class="sidebar" id="primary-sidebar">
+                <div class="sidebar-navigation">
+                    <nav class="primary-nav" aria-label="主要导航">
+                        <div class="nav-group">
+                            <span class="nav-group-label">智能入口</span>
+                            <a class="nav-link" href="#workbench" data-route="workbench">
+                                <strong>能力总览</strong>
+                            </a>
+                            <a class="nav-link" href="#xdr-monitor" data-route="xdr-monitor">
+                                <strong>XDR 实时监测</strong>
+                            </a>
+                            <a class="nav-link" href="#chat" data-route="chat">
+                                <strong>安全对话</strong>
+                            </a>
+                            <a class="nav-link" href="#ctf" data-route="ctf">
+                                <strong>CTF攻防</strong>
+                            </a>
+                        </div>
+
+                        <div class="nav-group">
+                            <span class="nav-group-label">安全分析</span>
+                            <a class="nav-link" href="#threat-analysis" data-route="threat-analysis">
+                                <strong>威胁分析</strong>
+                            </a>
+                            <a class="nav-link" href="#code-scan" data-route="code-scan">
+                                <strong>代码扫描</strong>
+                            </a>
+                            <a class="nav-link" href="#cwe-kb" data-route="cwe-kb">
+                                <strong>CWE知识库</strong>
+                            </a>
+                        </div>
+
+                        <div class="nav-group">
+                            <span class="nav-group-label">智能体能力</span>
+                            <a class="nav-link" href="#ooda-timeline" data-route="ooda-timeline">
+                                <strong>OODA决策循环</strong>
+                            </a>
+                            <a class="nav-link" href="#rag-evidence" data-route="rag-evidence">
+                                <strong>证据锚定RAG</strong>
+                            </a>
+                            <a class="nav-link" href="#eat-chain" data-route="eat-chain">
+                                <strong>EAT审计链</strong>
+                            </a>
+                            <a class="nav-link" href="#hitl-approval" data-route="hitl-approval">
+                                <strong>HITL人机协同</strong>
+                            </a>
+                        </div>
+
+                        <div class="nav-group">
+                            <span class="nav-group-label">系统管理</span>
+                            <a class="nav-link" href="#audit" data-route="audit">
+                                <strong>审计日志</strong>
+                            </a>
+                            <a class="nav-link" href="#settings" data-route="settings">
+                                <strong>系统设置</strong>
+                            </a>
+                        </div>
+                    </nav>
+
+                    <a class="case-demo-link" href="#judge" data-route="judge">
+                        <span>过程展示</span>
+                        <strong>案件研判与处置闭环</strong>
+                    </a>
+                </div>
+
+                <div class="sidebar-agent">
+                    <span class="agent-label">参赛智能体</span>
+                    <strong>CangSight</strong>
+                    <span id="agent-status">回放模式已就绪</span>
+                </div>
+            </aside>
+
+            <main class="main-content" id="main" tabindex="-1" aria-labelledby="route-heading">
+                <h1 class="visually-hidden" id="route-heading">首页</h1>
+                <section class="view is-active" id="view-home" data-view-panel="home">
+                    <div class="portal">
+                        <header class="portal-hero">
+                            <span class="summary-kicker">CangSight · 鉴真</span>
+                            <h1>AI 安全运营超级智能体</h1>
+                            <p>一站式安全能力平台：实时监测、智能研判、攻防演练、威胁分析、代码扫描与知识检索，全程证据可追溯。</p>
+                        </header>
+
+                        <nav class="portal-entries" aria-label="功能入口">
+                            <button class="portal-entry" type="button" data-route-jump="workbench">
+                                <span class="portal-entry-icon" aria-hidden="true">🧭</span>
+                                <span class="portal-entry-copy">
+                                    <strong>能力工作台</strong>
+                                    <small>XDR 监测 · 安全对话 · CTF 攻防 · 威胁分析 · 代码扫描 · CWE 知识库</small>
+                                </span>
+                                <span class="portal-entry-arrow" aria-hidden="true">→</span>
+                            </button>
+                            <button class="portal-entry portal-entry--accent" type="button" data-route-jump="judge">
+                                <span class="portal-entry-icon" aria-hidden="true">▶</span>
+                                <span class="portal-entry-copy">
+                                    <strong>过程展示</strong>
+                                    <small>案件研判与处置闭环 · 评审演示</small>
+                                </span>
+                                <span class="portal-entry-arrow" aria-hidden="true">→</span>
+                            </button>
+                        </nav>
+                    </div>
+                </section>
+
+                <section class="view" id="view-workbench" data-view-panel="workbench" hidden>
+                    <header class="home-hero">
+                        <div class="home-hero-copy">
+                            <span class="summary-kicker">能力工作台</span>
+                            <h2>主体功能</h2>
+                            <p>选择一项能力开始使用，全部能力共享统一证据链与审计闭环。</p>
+                        </div>
+                    </header>
+
+                    <nav class="capability-wheel-nav" aria-label="主体功能">
+                        <!-- 左侧：功能原理说明（小字） -->
+                        <aside class="capability-legend" aria-label="功能原理说明">
+                            <header class="capability-legend-head">
+                                <span class="capability-legend-kicker">功能原理</span>
+                            </header>
+                            <ul class="capability-legend-list">
+                                <li class="capability-legend-item is-core">
+                                    <span class="capability-legend-dot capability-legend-dot--blue" aria-hidden="true"></span>
+                                    <span class="capability-legend-body">
+                                        <strong>威胁分析</strong>
+                                        <small>SymPas 符号切片 + 污点追踪，还原从输入源到危险汇点的攻击路径</small>
+                                    </span>
+                                </li>
+                                <li class="capability-legend-item is-core">
+                                    <span class="capability-legend-dot capability-legend-dot--violet" aria-hidden="true"></span>
+                                    <span class="capability-legend-body">
+                                        <strong>代码扫描</strong>
+                                        <small>静态扫描 + 堆内存形式化验证 + 蜕变关系，定位鸿蒙 / 仓颉 CWE</small>
+                                    </span>
+                                </li>
+                                <li class="capability-legend-item">
+                                    <span class="capability-legend-dot capability-legend-dot--teal" aria-hidden="true"></span>
+                                    <span class="capability-legend-body">
+                                        <strong>XDR 实时监测</strong>
+                                        <small>直连 Wazuh 与通用 REST 厂商，自动研判并处置告警</small>
+                                    </span>
+                                </li>
+                                <li class="capability-legend-item">
+                                    <span class="capability-legend-dot capability-legend-dot--green" aria-hidden="true"></span>
+                                    <span class="capability-legend-body">
+                                        <strong>安全对话</strong>
+                                        <small>LLM 多轮推理，分析安全事件与异常线索</small>
+                                    </span>
+                                </li>
+                                <li class="capability-legend-item">
+                                    <span class="capability-legend-dot capability-legend-dot--amber" aria-hidden="true"></span>
+                                    <span class="capability-legend-body">
+                                        <strong>CTF 攻防</strong>
+                                        <small>端口扫描 · 注入利用 · 取证与加密分析工具链</small>
+                                    </span>
+                                </li>
+                                <li class="capability-legend-item">
+                                    <span class="capability-legend-dot capability-legend-dot--rose" aria-hidden="true"></span>
+                                    <span class="capability-legend-body">
+                                        <strong>CWE 知识库</strong>
+                                        <small>RAG 检索，匹配弱点分类与修复建议</small>
+                                    </span>
+                                </li>
+                            </ul>
+                        </aside>
+
+                        <!-- 能力轮盘（核心创新为大扇区，普通能力为小扇区） -->
+                        <div class="capability-wheel">
+                            <svg viewBox="0 0 560 560" role="img" aria-label="能力轮盘">
+                                <g class="wheel-ring">
+                                    <path class="wheel-sector wheel-sector--blue" data-route-jump="threat-analysis" role="button" tabindex="0" aria-label="威胁分析（SymPas 符号切片）" d="M 280.00 30.00 A 250 250 0 0 1 514.92 365.51 L 373.97 314.20 A 100 100 0 0 0 280.00 180.00 Z" />
+                                    <path class="wheel-sector wheel-sector--teal" data-route-jump="xdr-monitor" role="button" tabindex="0" aria-label="XDR 实时监测" d="M 514.92 365.51 A 250 250 0 0 1 423.39 484.79 L 337.36 361.92 A 100 100 0 0 0 373.97 314.20 Z" />
+                                    <path class="wheel-sector wheel-sector--green" data-route-jump="chat" role="button" tabindex="0" aria-label="安全对话" d="M 423.39 484.79 A 250 250 0 0 1 280.00 530.00 L 280.00 380.00 A 100 100 0 0 0 337.36 361.92 Z" />
+                                    <path class="wheel-sector wheel-sector--amber" data-route-jump="ctf" role="button" tabindex="0" aria-label="CTF 攻防" d="M 280.00 530.00 A 250 250 0 0 1 136.61 484.79 L 222.64 361.92 A 100 100 0 0 0 280.00 380.00 Z" />
+                                    <path class="wheel-sector wheel-sector--rose" data-route-jump="cwe-kb" role="button" tabindex="0" aria-label="CWE 知识库" d="M 136.61 484.79 A 250 250 0 0 1 45.08 365.51 L 186.03 314.20 A 100 100 0 0 0 222.64 361.92 Z" />
+                                    <path class="wheel-sector wheel-sector--violet" data-route-jump="code-scan" role="button" tabindex="0" aria-label="代码扫描（SymPas 形式化验证）" d="M 45.08 365.51 A 250 250 0 0 1 280.00 30.00 L 280.00 180.00 A 100 100 0 0 0 186.03 314.20 Z" />
+                                </g>
+
+                                <g class="wheel-labels" pointer-events="none" aria-hidden="true">
+                                    <g class="wheel-label is-innovation" transform="translate(423.4 179.6)">
+                                        <text class="wheel-label-name" x="0" y="0" text-anchor="middle">威胁分析</text>
+                                        <text class="wheel-label-sub" x="0" y="22" text-anchor="middle">符号切片 · 污点追踪</text>
+                                    </g>
+                                    <g class="wheel-label is-normal" transform="translate(418.8 386.5)">
+                                        <text class="wheel-label-name" x="0" y="5" text-anchor="middle">XDR 监测</text>
+                                    </g>
+                                    <g class="wheel-label is-normal" transform="translate(332.6 446.9)">
+                                        <text class="wheel-label-name" x="0" y="5" text-anchor="middle">安全对话</text>
+                                    </g>
+                                    <g class="wheel-label is-normal" transform="translate(227.4 446.9)">
+                                        <text class="wheel-label-name" x="0" y="5" text-anchor="middle">CTF 攻防</text>
+                                    </g>
+                                    <g class="wheel-label is-normal" transform="translate(141.2 386.5)">
+                                        <text class="wheel-label-name" x="0" y="5" text-anchor="middle">CWE 知识库</text>
+                                    </g>
+                                    <g class="wheel-label is-innovation" transform="translate(136.6 179.6)">
+                                        <text class="wheel-label-name" x="0" y="0" text-anchor="middle">代码扫描</text>
+                                        <text class="wheel-label-sub" x="0" y="22" text-anchor="middle">形式化验证 · 蜕变关系</text>
+                                    </g>
+                                </g>
+
+                                <g class="wheel-hub" aria-hidden="true">
+                                    <circle cx="280" cy="280" r="98" />
+                                    <circle class="wheel-hub-ring" cx="280" cy="280" r="86" />
+                                    <text class="wheel-hub-brand" x="280" y="264" text-anchor="middle">鉴真</text>
+                                    <text class="wheel-hub-sub" x="280" y="296" text-anchor="middle">CangSight</text>
+                                </g>
+                            </svg>
+                            <p class="capability-wheel-caption">大扇区 = 核心创新（SymPas 深度分析） · 小扇区 = 普通能力</p>
+                        </div>
+                    </nav>
+                </section>
+                <section class="view" id="view-current-case" data-view-panel="current-case" hidden>
+                    <div class="judge-stage">
+                        <section class="scenario-input-panel" id="scenario-panel">
+                            <header class="scenario-header">
+                                <span class="section-eyebrow">自定义安全场景</span>
+                                <h2>输入安全场景，由智能体生成演示</h2>
+                            </header>
+                            <div class="scenario-form">
+                                <textarea id="scenario-input" rows="3"
+                                    placeholder="例如：内网服务器在凌晨检测到 lsass_backup.exe 异常进程，疑似凭据窃取；或粘贴 WAF 告警 JSON、CVE 描述..."></textarea>
+                                <div class="scenario-presets">
+                                    <button type="button" class="scenario-preset" data-preset="sqli">SQL 注入</button>
+                                    <button type="button" class="scenario-preset" data-preset="webshell">WebShell 写入</button>
+                                    <button type="button" class="scenario-preset" data-preset="apt">APT 入侵</button>
+                                    <button type="button" class="scenario-preset" data-preset="credential">凭据窃取</button>
+                                </div>
+                            </div>
+                            <div class="scenario-library">
+                                <button class="scenario-library-toggle" id="scenario-library-toggle" type="button" aria-expanded="false">
+                                    <span class="library-toggle-text">📋 选择预设安全场景（点击展开更多场景）</span>
+                                    <span class="library-toggle-icon">▼</span>
+                                </button>
+                                <div class="scenario-library-content" id="scenario-library-content" hidden>
+                                    <div class="scenario-card" data-scenario="sqli">
+                                        <div class="scenario-card-header">
+                                            <span class="scenario-card-icon">💉</span>
+                                            <strong>SQL 注入攻击</strong>
+                                            <span class="risk-tag risk-high">高风险</span>
+                                        </div>
+                                        <p>Web 应用订单接口检测到布尔盲注特征，攻击载荷为 ' OR 1=1 --，攻击源 IP 203.0.113.24，响应时延增加 824ms。</p>
+                                    </div>
+                                    <div class="scenario-card" data-scenario="webshell">
+                                        <div class="scenario-card-header">
+                                            <span class="scenario-card-icon">🐚</span>
+                                            <strong>WebShell 写入</strong>
+                                            <span class="risk-tag risk-critical">严重</span>
+                                        </div>
+                                        <p>Web 应用上传接口检测到 PHP WebShell 写入，文件 shell.php 包含 eval($_POST[cmd])，攻击源 IP 198.51.100.42。</p>
+                                    </div>
+                                    <div class="scenario-card" data-scenario="apt">
+                                        <div class="scenario-card-header">
+                                            <span class="scenario-card-icon">🎯</span>
+                                            <strong>APT 横向移动</strong>
+                                            <span class="risk-tag risk-critical">严重</span>
+                                        </div>
+                                        <p>内网检测到 APT 横向移动，发现 Pass-the-Hash 攻击和持久化后门，攻击源主机 10.0.1.55 尝试访问域控。</p>
+                                    </div>
+                                    <div class="scenario-card" data-scenario="credential">
+                                        <div class="scenario-card-header">
+                                            <span class="scenario-card-icon">🔑</span>
+                                            <strong>凭据窃取</strong>
+                                            <span class="risk-tag risk-high">高风险</span>
+                                        </div>
+                                        <p>凌晨检测到 lsass 进程异常访问，mimikatz 尝试读取凭据，攻击源主机 10.0.2.88，检测到凭据外发行为。</p>
+                                    </div>
+                                    <div class="scenario-card" data-scenario="xss">
+                                        <div class="scenario-card-header">
+                                            <span class="scenario-card-icon">📄</span>
+                                            <strong>XSS 跨站脚本</strong>
+                                            <span class="risk-tag risk-medium">中风险</span>
+                                        </div>
+                                        <p>评论区检测到存储型 XSS 攻击， Payload 为 &lt;script&gt;document.cookie&lt;/script&gt;，攻击源 IP 192.0.2.66，可能窃取用户会话。</p>
+                                    </div>
+                                    <div class="scenario-card" data-scenario="ransomware">
+                                        <div class="scenario-card-header">
+                                            <span class="scenario-card-icon">🔒</span>
+                                            <strong>勒索软件攻击</strong>
+                                            <span class="risk-tag risk-critical">严重</span>
+                                        </div>
+                                        <p>文件服务器检测到大规模文件加密行为，扩展名被批量修改为 .locked，勒索说明文件 README.txt 已落地，疑似 WannaCry 变种。</p>
+                                    </div>
+                                    <div class="scenario-card" data-scenario="ddos">
+                                        <div class="scenario-card-header">
+                                            <span class="scenario-card-icon">🌊</span>
+                                            <strong>DDoS 分布式拒绝服务</strong>
+                                            <span class="risk-tag risk-high">高风险</span>
+                                        </div>
+                                        <p>Web 服务在 5 分钟内收到超过 50 万次请求，来自全球 2000+ 不同 IP，CPU 使用率达 95%，服务响应超时。</p>
+                                    </div>
+                                    <div class="scenario-card" data-scenario="phishing">
+                                        <div class="scenario-card-header">
+                                            <span class="scenario-card-icon">🎣</span>
+                                            <strong>钓鱼攻击</strong>
+                                            <span class="risk-tag risk-medium">中风险</span>
+                                        </div>
+                                        <p>邮件网关检测到伪造发件人的钓鱼邮件，附件包含恶意宏文档 invoice.xlsm，收件人覆盖财务部门全体成员。</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="scenario-actions">
+                                <button class="button button-primary" id="scenario-submit" type="button">智能体生成演示</button>
+                                <span class="scenario-status" id="scenario-status" role="status" aria-live="polite"></span>
+                            </div>
+                        </section>
+
+                        <header class="incident-brief scenario-output">
+                            <div class="incident-identity">
+                                <div class="case-heading-row">
+                                    <span class="source-badge" id="case-source">官方样例回放</span>
+                                    <span class="risk-label risk-high" id="case-risk">严重风险</span>
+                                </div>
+                                <h2 id="case-title">SQL 注入攻击闭环</h2>
+                                <p id="case-summary">教学商城处于正常基线，等待开始样例回放。</p>
+                            </div>
+
+                            <dl class="incident-metrics" aria-label="事件概况">
+                                <div>
+                                    <dt>事件编号</dt>
+                                    <dd id="case-id">CASE-SQLI-2026-0726</dd>
+                                </div>
+                                <div>
+                                    <dt>当前阶段</dt>
+                                    <dd id="case-stage">系统正常运行</dd>
+                                </div>
+                                <div>
+                                    <dt>演示用时</dt>
+                                    <dd id="case-elapsed">00:00</dd>
+                                </div>
+                            </dl>
+
+                            <div class="incident-state">
+                                <span>闭环状态</span>
+                                <strong class="stage-state state-ready" id="overall-state">等待开始</strong>
+                            </div>
+                        </header>
+
+                        <div class="source-lane scenario-output" id="mode-notice" role="status" aria-live="polite">
+                            <strong>数据边界</strong>
+                            <span class="source-option">本地实时</span>
+                            <span class="source-option is-active">官方样例回放</span>
+                            <span class="source-option is-disabled">待申请真实环境</span>
+                            <span class="source-explainer">当前使用脱敏夹具，不代表真实 XDR 生产数据。</span>
+                        </div>
+
+                        <div class="judge-command-grid scenario-output">
+                            <section class="topology-panel" aria-labelledby="topology-title">
+                                <div class="topology-heading">
+                                    <div>
+                                        <span class="section-eyebrow">攻击路径与证据流</span>
+                                        <h2 id="topology-title">动态攻防拓扑</h2>
+                                    </div>
+                                    <div class="topology-legend" aria-label="拓扑状态图例">
+                                        <span><i class="legend-dot is-live"></i>当前</span>
+                                        <span><i class="legend-dot is-done"></i>已验证</span>
+                                        <span><i class="legend-dot is-stop"></i>中断</span>
+                                    </div>
+                                </div>
+
+                                <div class="topology-canvas" id="attack-topology">
+                                    <svg
+                                        class="attack-map"
+                                        viewBox="0 0 920 500"
+                                        role="img"
+                                        aria-labelledby="topology-svg-title topology-svg-desc"
+                                    >
+                                        <title id="topology-svg-title">SQL 注入攻击与处置证据拓扑</title>
+                                        <desc id="topology-svg-desc">展示攻击源、Web 应用、数据库、XDR、AI 智能体、HITL 审批、封禁策略和审计证据之间的状态路径。</desc>
+                                        <defs>
+                                            <marker id="topology-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                                                <path d="M 0 0 L 10 5 L 0 10 z"></path>
+                                            </marker>
+                                        </defs>
+
+                                        <g class="topology-edge" data-edge="attack-entry">
+                                            <path d="M 188 259 C 226 259 241 259 279 259"></path>
+                                            <text x="232" y="243">恶意请求</text>
+                                        </g>
+                                        <g class="topology-edge" data-edge="asset-path">
+                                            <path d="M 431 259 C 465 259 485 259 519 259"></path>
+                                            <text x="468" y="243">查询链路</text>
+                                        </g>
+                                        <g class="topology-edge" data-edge="telemetry">
+                                            <path d="M 355 224 C 355 186 355 169 355 131"></path>
+                                            <text x="369" y="180">遥测</text>
+                                        </g>
+                                        <g class="topology-edge" data-edge="evidence">
+                                            <path d="M 431 96 C 467 96 485 96 519 96"></path>
+                                            <text x="468" y="80">证据</text>
+                                        </g>
+                                        <g class="topology-edge" data-edge="recommendation">
+                                            <path d="M 671 96 C 707 96 725 96 759 96"></path>
+                                            <text x="702" y="80">建议</text>
+                                        </g>
+                                        <g class="topology-edge" data-edge="approval">
+                                            <path d="M 835 131 C 835 169 835 186 835 224"></path>
+                                            <text x="850" y="180">批准</text>
+                                        </g>
+                                        <g class="topology-edge" data-edge="enforcement">
+                                            <path d="M 759 259 C 680 259 640 362 560 391 C 421 441 255 409 151 294"></path>
+                                            <text x="626" y="355">限时封禁</text>
+                                        </g>
+                                        <g class="topology-edge" data-edge="verification">
+                                            <path d="M 355 294 C 355 342 409 401 519 401"></path>
+                                            <text x="375" y="353">复测</text>
+                                        </g>
+                                        <g class="topology-edge" data-edge="audit">
+                                            <path d="M 759 294 C 716 342 674 383 671 401"></path>
+                                            <text x="700" y="360">回执</text>
+                                        </g>
+
+                                        <g class="topology-node" data-node="attacker" transform="translate(36 224)">
+                                            <rect width="152" height="70" rx="10"></rect>
+                                            <circle class="node-state" cx="18" cy="18" r="6"></circle>
+                                            <text class="node-label" x="18" y="42">攻击源 IP</text>
+                                            <text class="node-value" x="18" y="60">203.0.113.24</text>
+                                        </g>
+                                        <g class="topology-node" data-node="web" transform="translate(279 224)">
+                                            <rect width="152" height="70" rx="10"></rect>
+                                            <circle class="node-state" cx="18" cy="18" r="6"></circle>
+                                            <text class="node-label" x="18" y="42">教学商城 Web</text>
+                                            <text class="node-value" x="18" y="60">/api/orders</text>
+                                        </g>
+                                        <g class="topology-node" data-node="database" transform="translate(519 224)">
+                                            <rect width="152" height="70" rx="10"></rect>
+                                            <circle class="node-state" cx="18" cy="18" r="6"></circle>
+                                            <text class="node-label" x="18" y="42">订单数据库</text>
+                                            <text class="node-value" x="18" y="60">核心资产</text>
+                                        </g>
+                                        <g class="topology-node" data-node="xdr" transform="translate(279 61)">
+                                            <rect width="152" height="70" rx="10"></rect>
+                                            <circle class="node-state" cx="18" cy="18" r="6"></circle>
+                                            <text class="node-label" x="18" y="42">检测 / XDR</text>
+                                            <text class="node-value" x="18" y="60">规则 + 流量证据</text>
+                                        </g>
+                                        <g class="topology-node" data-node="ai" transform="translate(519 61)">
+                                            <rect width="152" height="70" rx="10"></rect>
+                                            <circle class="node-state" cx="18" cy="18" r="6"></circle>
+                                            <text class="node-label" x="18" y="42">AI 安全智能体</text>
+                                            <text class="node-value" x="18" y="60">证据约束研判</text>
+                                        </g>
+                                        <g class="topology-node" data-node="hitl" transform="translate(759 61)">
+                                            <rect width="152" height="70" rx="10"></rect>
+                                            <circle class="node-state" cx="18" cy="18" r="6"></circle>
+                                            <text class="node-label" x="18" y="42">HITL 审批</text>
+                                            <text class="node-value" x="18" y="60">保留人类控制权</text>
+                                        </g>
+                                        <g class="topology-node" data-node="policy" transform="translate(759 224)">
+                                            <rect width="152" height="70" rx="10"></rect>
+                                            <circle class="node-state" cx="18" cy="18" r="6"></circle>
+                                            <text class="node-label" x="18" y="42">临时封禁策略</text>
+                                            <text class="node-value" x="18" y="60">15 分钟，可回滚</text>
+                                        </g>
+                                        <g class="topology-node" data-node="audit" transform="translate(519 366)">
+                                            <rect width="152" height="70" rx="10"></rect>
+                                            <circle class="node-state" cx="18" cy="18" r="6"></circle>
+                                            <text class="node-label" x="18" y="42">审计证据</text>
+                                            <text class="node-value" x="18" y="60">EAT 决策回执</text>
+                                        </g>
+                                    </svg>
+
+                                    <div class="topology-status" id="topology-status">
+                                        <span class="topology-status-label">路径状态</span>
+                                        <strong>基线正常，尚未检测到攻击</strong>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <aside class="decision-rail" aria-labelledby="decision-rail-title">
+                                <header class="decision-rail-heading">
+                                    <div>
+                                        <span class="section-eyebrow">证据约束 AI</span>
+                                        <h2 id="decision-rail-title">研判与人类控制</h2>
+                                    </div>
+                                    <div class="rail-heading-actions">
+                                        <span class="confidence-value" id="ai-confidence">基线</span>
+                                        <button class="text-button stage-detail-link" id="stage-detail-link" type="button">
+                                            查看阶段详情
+                                        </button>
+                                    </div>
+                                </header>
+
+                                <section class="rail-section decision-summary" aria-labelledby="decision-summary-title">
+                                    <span class="summary-kicker">AI 当前判断</span>
+                                    <h3 id="decision-summary-title">未发现异常</h3>
+                                    <p id="decision-summary-text">请求速率和数据库响应均处于教学基线范围。</p>
+                                </section>
+
+                                <section class="rail-section agent-actions" aria-labelledby="agent-actions-title">
+                                    <div class="rail-section-heading">
+                                        <h3 id="agent-actions-title">智能体动作链（ReAct）</h3>
+                                        <span class="rail-hint">Thought → Tool → Evidence</span>
+                                    </div>
+                                    <ol class="agent-action-list" id="agent-action-list"></ol>
+                                </section>
+
+                                <section class="rail-section" aria-labelledby="key-evidence-title">
+                                    <div class="rail-section-heading">
+                                        <h3 id="key-evidence-title">关键证据</h3>
+                                        <span id="evidence-count">0 / 4</span>
+                                    </div>
+                                    <ul class="key-evidence-list" id="key-evidence-list">
+                                        <li data-evidence="payload"><span>请求载荷</span><strong>等待攻击样本</strong></li>
+                                        <li data-evidence="response"><span>响应差异</span><strong>等待关联</strong></li>
+                                        <li data-evidence="asset"><span>资产影响</span><strong>等待确认</strong></li>
+                                        <li data-evidence="knowledge"><span>知识引用</span><strong>等待 RAG</strong></li>
+                                    </ul>
+                                </section>
+
+                                <section class="rail-section control-decision" aria-labelledby="control-decision-title">
+                                    <div class="rail-section-heading">
+                                        <h3 id="control-decision-title">处置与审批</h3>
+                                        <span class="control-state is-pending" id="approval-state">未申请</span>
+                                    </div>
+                                    <p id="approval-detail">建议尚未形成，任何高风险动作都不会自动执行。</p>
+                                    <dl class="outcome-grid">
+                                        <div>
+                                            <dt>执行结果</dt>
+                                            <dd id="execution-state">未执行</dd>
+                                        </div>
+                                        <div>
+                                            <dt>复测结果</dt>
+                                            <dd id="verification-state">未验证</dd>
+                                        </div>
+                                        <div>
+                                            <dt>审计编号</dt>
+                                            <dd id="audit-id">待生成</dd>
+                                        </div>
+                                    </dl>
+                                    <details class="receipt-provenance" id="receipt-provenance">
+                                        <summary>
+                                            <strong>状态来源</strong>
+                                            <span id="receipt-provenance-summary">官方样例回放，尚无回执</span>
+                                        </summary>
+                                        <dl id="receipt-provenance-list">
+                                            <div>
+                                                <dt>当前</dt>
+                                                <dd>尚未产生审批、执行或复测回执。</dd>
+                                            </div>
+                                        </dl>
+                                    </details>
+                                </section>
+                            </aside>
+                        </div>
+
+                        <footer class="demo-console scenario-output">
+                            <ol class="judge-progress" id="decision-timeline" aria-label="演示进度">
+                                <li class="judge-progress-step is-current" data-stage="normal"><span>01</span><strong>正常运行</strong></li>
+                                <li class="judge-progress-step" data-stage="detect"><span>02</span><strong>发现攻击</strong></li>
+                                <li class="judge-progress-step" data-stage="correlate"><span>03</span><strong>汇聚证据</strong></li>
+                                <li class="judge-progress-step" data-stage="reason"><span>04</span><strong>AI 研判</strong></li>
+                                <li class="judge-progress-step" data-stage="approve"><span>05</span><strong>等待审批</strong></li>
+                                <li class="judge-progress-step" data-stage="approved"><span>06</span><strong>人工批准</strong></li>
+                                <li class="judge-progress-step" data-stage="execute"><span>07</span><strong>执行处置</strong></li>
+                                <li class="judge-progress-step" data-stage="verify"><span>08</span><strong>复测验证</strong></li>
+                                <li class="judge-progress-step" data-stage="audit"><span>09</span><strong>审计闭环</strong></li>
+                            </ol>
+
+                            <div class="demo-control-row">
+                                <div class="keyboard-hint" aria-hidden="true">
+                                    ← 上一步　空格 播放 / 暂停　下一步 →
+                                    <span id="demo-timing-note">建议总时长 02:45</span>
+                                </div>
+                                <div class="demo-actions">
+                                    <button class="button button-quiet" id="toggle-zoom" type="button" aria-pressed="false">🔍 放大窗口</button>
+                                    <button class="button button-quiet" id="reset-case" type="button">重新开始</button>
+                                    <button class="button button-secondary" id="demo-prev" type="button" disabled>上一步</button>
+                                    <button class="button button-quiet" id="resume-furthest" type="button" hidden>回到最新阶段</button>
+                                    <button class="button button-secondary" id="demo-play" type="button" aria-pressed="false">自动播放</button>
+                                    <button class="button button-primary" id="start-replay" type="button">下一步</button>
+                                </div>
+                                <div class="live-actions">
+                                    <button class="button button-primary" id="review-live-approval" type="button" hidden>审核真实请求</button>
+                                    <button class="button button-quiet" id="sync-live" type="button">读取本地实时</button>
+                                </div>
+                            </div>
+                        </footer>
+                    </div>
+
+                    <header class="case-command" hidden>
+                        <div class="case-heading">
+                            <div class="case-heading-row">
+                                <span class="source-badge">官方样本回放</span>
+                                <span class="risk-label risk-high">高风险</span>
+                            </div>
+                            <h2>未授权写入 WebShell</h2>
+                            <p>关联异常写入与外联行为，等待智能体开始研判。</p>
+                        </div>
+
+                        <dl class="case-facts" aria-label="案件概况">
+                            <div>
+                                <dt>案件编号</dt>
+                                <dd>CASE-NTA-0427</dd>
+                            </div>
+                            <div>
+                                <dt>当前阶段</dt>
+                                <dd>等待开始</dd>
+                            </div>
+                            <div>
+                                <dt>证据来源</dt>
+                                <dd>4 类</dd>
+                            </div>
+                        </dl>
+
+                        <div class="case-actions">
+                            <button class="button button-primary" type="button">开始案件回放</button>
+                            <button class="button button-primary" type="button" hidden>审核待审批动作</button>
+                            <button class="button button-secondary" type="button">连接实时运行</button>
+                            <button class="button button-quiet" type="button">重置</button>
+                        </div>
+                    </header>
+
+                    <div class="mode-notice" role="status" aria-live="polite" hidden>
+                        <strong>回放模式</strong>
+                        <span>使用竞赛提供的 NTA 样本与脱敏演示夹具，不代表真实 XDR 生产环境。</span>
+                    </div>
+
+                    <div class="case-workbench" hidden>
+                        <section class="decision-panel" aria-labelledby="decision-title">
+                            <div class="section-heading">
+                                <div>
+                                    <h2 id="decision-title">智能体决策链</h2>
+                                    <p>每一步都显示输入证据、判断依据和下一动作。</p>
+                                </div>
+                                <span class="stage-state state-ready">等待开始</span>
+                            </div>
+
+                            <ol class="decision-timeline">
+                                <li class="timeline-step is-current" data-stage="intake">
+                                    <div class="step-marker" aria-hidden="true">1</div>
+                                    <div class="step-body">
+                                        <div class="step-title">
+                                            <h3>接收告警</h3>
+                                            <span class="step-status">当前</span>
+                                        </div>
+                                        <p>读取 NTA 流量样本与告警上下文，建立案件边界。</p>
+                                        <div class="step-detail">
+                                            <span>输入</span>
+                                            <strong>未授权写 webshell.pcap</strong>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li class="timeline-step" data-stage="correlate">
+                                    <div class="step-marker" aria-hidden="true">2</div>
+                                    <div class="step-body">
+                                        <div class="step-title">
+                                            <h3>关联证据</h3>
+                                            <span class="step-status">待执行</span>
+                                        </div>
+                                        <p>关联写入请求、响应特征、资产角色与后续外联行为。</p>
+                                        <div class="step-detail">
+                                            <span>工具</span>
+                                            <strong>PCAP 分析、资产查询、RAG</strong>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li class="timeline-step" data-stage="reason">
+                                    <div class="step-marker" aria-hidden="true">3</div>
+                                    <div class="step-body">
+                                        <div class="step-title">
+                                            <h3>形成研判</h3>
+                                            <span class="step-status">待执行</span>
+                                        </div>
+                                        <p>区分误报与真实入侵，给出置信依据和证据缺口。</p>
+                                        <div class="step-detail">
+                                            <span>预期判断</span>
+                                            <strong>WebShell 写入后出现可疑外联</strong>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li class="timeline-step" data-stage="approve">
+                                    <div class="step-marker" aria-hidden="true">4</div>
+                                    <div class="step-body">
+                                        <div class="step-title">
+                                            <h3>请求处置批准</h3>
+                                            <span class="step-status">待执行</span>
+                                        </div>
+                                        <p>高风险动作暂停执行，向操作员展示影响面与回滚方案。</p>
+                                        <div class="step-detail">
+                                            <span>拟执行</span>
+                                            <strong>隔离主机并阻断可疑连接</strong>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li class="timeline-step" data-stage="act">
+                                    <div class="step-marker" aria-hidden="true">5</div>
+                                    <div class="step-body">
+                                        <div class="step-title">
+                                            <h3>执行受控处置</h3>
+                                            <span class="step-status">待执行</span>
+                                        </div>
+                                        <p>执行获批动作，记录参数、操作者、响应和审计摘要。</p>
+                                        <div class="step-detail">
+                                            <span>控制</span>
+                                            <strong>HITL 审批与最小权限</strong>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li class="timeline-step" data-stage="verify">
+                                    <div class="step-marker" aria-hidden="true">6</div>
+                                    <div class="step-body">
+                                        <div class="step-title">
+                                            <h3>重观察并验证</h3>
+                                            <span class="step-status">待执行</span>
+                                        </div>
+                                        <p>重新查询告警和网络行为，确认风险下降或触发重新规划。</p>
+                                        <div class="step-detail">
+                                            <span>完成条件</span>
+                                            <strong>外联停止且审计链可验证</strong>
+                                        </div>
+                                    </div>
+                                </li>
+                            </ol>
+                        </section>
+
+                        <aside class="evidence-panel" aria-labelledby="evidence-panel-title">
+                            <div class="section-heading compact">
+                                <div>
+                                    <h2 id="evidence-panel-title">案件证据</h2>
+                                    <p>选中阶段的直接依据</p>
+                                </div>
+                                <button class="text-button" type="button" data-route-jump="rag-evidence">查看全部</button>
+                            </div>
+
+                            <div class="evidence-list" id="case-evidence-list">
+                                <article class="evidence-item is-primary">
+                                    <div class="evidence-type">流量样本</div>
+                                    <h3>未授权写 webshell.pcap</h3>
+                                    <p>竞赛官方 NTA 基线样本，作为案件回放输入。</p>
+                                    <dl>
+                                        <div><dt>来源</dt><dd>测评中心基线样本</dd></div>
+                                        <div><dt>完整性</dt><dd>本地文件</dd></div>
+                                    </dl>
+                                </article>
+                                <article class="evidence-item">
+                                    <div class="evidence-type">脱敏上下文</div>
+                                    <h3>受影响 Web 资产</h3>
+                                    <p>演示地址使用保留网段，避免暗示真实生产资产。</p>
+                                    <dl>
+                                        <div><dt>地址</dt><dd>192.0.2.45</dd></div>
+                                        <div><dt>角色</dt><dd>教学 Web 服务</dd></div>
+                                    </dl>
+                                </article>
+                                <article class="evidence-item">
+                                    <div class="evidence-type">知识引用</div>
+                                    <h3>WebShell 行为与处置基线</h3>
+                                    <p>用于约束研判与建议，不替代案件中的直接证据。</p>
+                                    <dl>
+                                        <div><dt>检索</dt><dd>待运行</dd></div>
+                                        <div><dt>引用</dt><dd>待生成</dd></div>
+                                    </dl>
+                                </article>
+                            </div>
+
+                            <section class="decision-summary" aria-labelledby="decision-summary-title">
+                                <span class="summary-kicker">当前结论</span>
+                                <h3>尚未形成处置建议</h3>
+                                <p>开始回放后，智能体将在此说明判断依据、证据缺口和动作影响。</p>
+                            </section>
+                        </aside>
+                    </div>
+                </section>
+
+                <section class="view" id="view-xdr-monitor" data-view-panel="xdr-monitor" hidden>
+                    <header class="page-header">
+                        <div>
+                            <h2>XDR 实时监测</h2>
+                            <p>直连 Wazuh 及通用 REST 厂商，每 5 秒拉取最新告警并由智能体自动研判与处置。</p>
+                        </div>
+                        <div class="xdr-monitor-actions">
+                            <span class="xdr-poll-status state-pending" id="xdr-poll-status">未启动</span>
+                            <button class="button button-secondary" id="xdr-monitor-refresh" type="button">立即刷新</button>
+                            <button class="button" id="xdr-monitor-toggle" type="button">启动监测</button>
+                        </div>
+                    </header>
+
+                    <!-- 未连接时的占位卡片 -->
+                    <div class="xdr-empty-state" id="xdr-empty-state">
+                        <div class="xdr-empty-card">
+                            <div class="xdr-empty-icon" aria-hidden="true">📡</div>
+                            <h3>尚未连接 XDR 平台</h3>
+                            <p>当前没有真实告警数据。请前往系统设置配置 Wazuh 或通用 REST 厂商连接信息，保存后回到本页启动监测。</p>
+                            <button class="button" type="button" data-route-jump="settings">前往设置配置</button>
+                        </div>
+                    </div>
+
+                    <!-- 已连接时的监测面板 -->
+                    <div class="xdr-monitor-grid" id="xdr-monitor-grid" hidden>
+                        <section class="xdr-unified-panel">
+                            <header class="xdr-panel-header">
+                                <h3>实时告警与智能研判</h3>
+                                <span class="xdr-poll-meta" id="xdr-poll-meta">最近刷新：—</span>
+                            </header>
+                            <div class="xdr-unified-list" id="xdr-unified-list"></div>
+                        </section>
+                    </div>
+                </section>
+
+                <section class="view" id="view-case-history" data-view-panel="case-history" hidden>
+                    <header class="page-header">
+                        <div>
+                            <h2>审计日志</h2>
+                            <p>集中查看真实运行与本地回放，来源标签不会混淆。</p>
+                        </div>
+                        <button class="button button-secondary" id="refresh-runs" type="button">刷新记录</button>
+                    </header>
+
+                    <div class="history-summary">
+                        <div class="history-lead">
+                            <span>最近运行</span>
+                            <strong id="history-latest">暂无真实运行</strong>
+                            <p id="history-latest-detail">连接本地网关后，这里会显示最新任务状态。</p>
+                        </div>
+                        <dl class="history-metrics">
+                            <div><dt>真实运行</dt><dd id="metric-runs">0</dd></div>
+                            <div><dt>待审批</dt><dd id="metric-approvals">0</dd></div>
+                            <div><dt>审计会话</dt><dd id="metric-audits">0</dd></div>
+                        </dl>
+                    </div>
+
+                    <div class="table-region" role="region" aria-labelledby="runs-table-title" tabindex="0">
+                        <h2 class="visually-hidden" id="runs-table-title">智能体运行记录</h2>
+                        <table>
+                            <caption class="visually-hidden">智能体运行记录</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">运行编号</th>
+                                    <th scope="col">来源</th>
+                                    <th scope="col">状态</th>
+                                    <th scope="col">创建时间</th>
+                                    <th scope="col">结果</th>
+                                </tr>
+                            </thead>
+                            <tbody id="runs-table-body">
+                                <tr class="empty-row">
+                                    <td colspan="5">尚无真实运行。评审演示可使用官方样本回放。</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="view" id="view-hitl" data-view-panel="hitl" hidden>
+                    <header class="page-header">
+                        <div>
+                            <h2>HITL 人机协同</h2>
+                            <p>Human-in-the-loop 保留人工控制权。批准只代表授权，执行结果必须等待服务端回执。</p>
+                        </div>
+                        <div class="page-actions">
+                            <button class="button button-primary" id="hitl-review" type="button" hidden>审核待审批动作</button>
+                            <button class="button button-secondary" id="hitl-refresh" type="button">刷新审批</button>
+                        </div>
+                    </header>
+
+                    <div class="hitl-summary">
+                        <div>
+                            <span class="summary-kicker">服务端审批状态</span>
+                            <h2 id="hitl-summary-title">正在读取待审批任务</h2>
+                            <p id="hitl-summary-text">审批令牌只在操作员提交决定时向本机服务请求，不写入页面或浏览器存储。</p>
+                        </div>
+                        <dl>
+                            <div>
+                                <dt>待审批</dt>
+                                <dd id="hitl-pending-count">0</dd>
+                            </div>
+                            <div>
+                                <dt>当前案件</dt>
+                                <dd id="hitl-case-stage">等待同步</dd>
+                            </div>
+                            <div>
+                                <dt>执行状态</dt>
+                                <dd id="hitl-execution-state">未执行</dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    <section class="hitl-queue" aria-labelledby="hitl-queue-title">
+                        <div class="section-heading compact">
+                            <div>
+                                <h2 id="hitl-queue-title">审批任务</h2>
+                                <p>完整保留等待、批准、拒绝、过期与执行中的服务端状态。</p>
+                            </div>
+                        </div>
+                        <div class="hitl-list" id="hitl-list" role="list">
+                            <div class="result-state">
+                                <strong>正在读取审批状态</strong>
+                                <p>如果网关不可用，这里会明确显示错误，不会生成本地批准状态。</p>
+                            </div>
+                        </div>
+                    </section>
+                </section>
+
+                <section class="view" id="view-attack-chain" data-view-panel="attack-chain" hidden>
+                    <header class="page-header">
+                        <div>
+                            <h2>自主闭环 · 攻击链时间线</h2>
+                            <p>CoT 推理时间线动态推流 → ReAct 决策循环 → HITL 审批 → EAT 审计链，全流程可追溯。</p>
+                        </div>
+                        <div class="page-actions">
+                            <button class="button button-primary" id="attack-chain-play" type="button">▶ 自动推流</button>
+                            <button class="button button-secondary" id="attack-chain-reset" type="button">重置</button>
+                        </div>
+                    </header>
+
+                    <div class="attack-alert-input">
+                        <label for="alert-input">告警输入：</label>
+                        <div class="alert-input-row">
+                            <input id="alert-input" type="search" placeholder="输入安全告警描述，或从下方选择典型告警类型" autocomplete="off">
+                            <button class="button button-primary" id="alert-submit" type="button">生成攻击链</button>
+                        </div>
+                        <div class="alert-dropdown">
+                            <button class="alert-dropdown-toggle" id="alert-dropdown-toggle" type="button">选择典型告警类型 ▾</button>
+                            <ul class="alert-dropdown-menu" id="alert-dropdown-menu" hidden>
+                                <li data-alert="检测到WebShell上传，/uploads目录新增PHP文件，包含eval命令执行函数">WebShell 告警</li>
+                                <li data-alert="检测到SQL注入攻击，UNION SELECT和SLEEP盲注载荷出现在商品查询接口">SQL 注入攻击</li>
+                                <li data-alert="发现内网横向移动行为，LSASS进程被注入minikatz窃取域管凭据">横向移动</li>
+                                <li data-alert="服务器被勒索软件加密，伪装PDF的exe落地后全盘文件被加密.lockbit3后缀">勒索软件</li>
+                                <li data-alert="检测到DDoS攻击，大量 SYN Flood 流量导致服务不可用">DDoS 攻击</li>
+                                <li data-alert="发现钓鱼邮件攻击，员工收到伪装为发票的恶意附件">钓鱼邮件</li>
+                            </ul>
+                        </div>
+                        <span id="alert-status" class="alert-status"></span>
+                    </div>
+
+                    <div class="attack-chain-layout">
+                        <section class="attack-timeline" aria-labelledby="attack-timeline-title">
+                            <div class="section-heading compact">
+                                <div>
+                                    <span class="summary-kicker">CoT 推理时间线</span>
+                                    <h2 id="attack-timeline-title">攻击链演进</h2>
+                                    <p id="attack-timeline-desc">从流量异常到内鬼行为，四步逐帧推流。</p>
+                                </div>
+                                <div class="timeline-controls">
+                                    <span id="timeline-progress" class="timeline-progress">0 / 4</span>
+                                </div>
+                            </div>
+                            <ol class="attack-timeline-list" id="attack-timeline-list">
+                            </ol>
+                        </section>
+
+                        <section class="attack-decision-loop" aria-labelledby="attack-decision-title">
+                            <div class="section-heading compact">
+                                <div>
+                                    <span class="summary-kicker">ReAct 决策循环</span>
+                                    <h2 id="attack-decision-title">决策事件流</h2>
+                                    <p>Reasoning + Acting 交替推进，每一步可追溯。</p>
+                                </div>
+                            </div>
+                            <div class="decision-loop">
+                                <div class="decision-loop-ring">
+                                    <div class="loop-node loop-thinking" id="loop-thinking">
+                                        <span class="loop-icon">💭</span>
+                                        <span class="loop-label">Thinking</span>
+                                    </div>
+                                    <div class="loop-node loop-acting" id="loop-acting">
+                                        <span class="loop-icon">⚡</span>
+                                        <span class="loop-label">Acting</span>
+                                    </div>
+                                    <div class="loop-node loop-observing" id="loop-observing">
+                                        <span class="loop-icon">👁</span>
+                                        <span class="loop-label">Observing</span>
+                                    </div>
+                                </div>
+                                <ol class="decision-event-list" id="decision-event-list">
+                                </ol>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="attack-closed-loop">
+                        <section class="hitl-panel" aria-labelledby="hitl-panel-title">
+                            <div class="hitl-card">
+                                <div class="hitl-card-header">
+                                    <span class="summary-kicker">HITL 人机协同</span>
+                                    <h2 id="hitl-panel-title">高危动作审批</h2>
+                                </div>
+                                <div class="hitl-card-body" id="hitl-card-body">
+                                    <div class="hitl-pending" id="hitl-pending" hidden>
+                                        <div class="hitl-threat-card" id="hitl-threat-card">
+                                            <span class="hitl-threat-level">⚠ 高危</span>
+                                            <h3 id="hitl-action-title">高危动作</h3>
+                                            <p id="hitl-action-detail"></p>
+                                            <p id="hitl-action-reason"></p>
+                                        </div>
+                                        <div class="hitl-actions">
+                                            <button class="button button-danger" id="hitl-approve" type="button">批准执行</button>
+                                            <button class="button button-secondary" id="hitl-reject" type="button">拒绝</button>
+                                        </div>
+                                    </div>
+                                    <div class="hitl-idle" id="hitl-idle">
+                                        <p>等待决策循环触发高危动作审批…</p>
+                                        <p class="hitl-hint">当智能体判定需要执行高危操作时，将暂停等待人工审批。</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="eat-panel" aria-labelledby="eat-panel-title">
+                            <div class="eat-card">
+                                <div class="eat-card-header">
+                                    <span class="summary-kicker">EAT 审计链</span>
+                                    <h2 id="eat-panel-title">执行回执</h2>
+                                </div>
+                                <div class="eat-card-body" id="eat-card-body">
+                                    <div class="eat-empty">
+                                        <p>尚未生成审计链事件</p>
+                                        <p class="eat-hint">批准高危动作后，执行结果将以密码学哈希链形式记录。</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </section>
+
+                <section class="view" id="view-evidence" data-view-panel="evidence" hidden>
+                    <header class="page-header">
+                        <div>
+                            <h2>证据锚定 RAG</h2>
+                            <p>把直接证据、检索知识和推断分开呈现，避免生成内容冒充事实。</p>
+                        </div>
+                    </header>
+
+                    <div class="evidence-workspace">
+                        <form class="evidence-query" id="rag-form">
+                            <label for="rag-query">安全知识检索</label>
+                            <div class="input-action">
+                                <input
+                                    id="rag-query"
+                                    name="query"
+                                    type="search"
+                                    value="SQL 注入 CWE-89 的检测、限时封禁与复测依据"
+                                    autocomplete="off"
+                                    aria-describedby="rag-help"
+                                >
+                                <button class="button button-primary" type="submit">检索知识</button>
+                            </div>
+                            <p id="rag-help">结果来自本地 RAG 服务，并显示引用和可信度信息。</p>
+                        </form>
+
+                        <div class="evidence-columns">
+                            <section class="source-library" aria-labelledby="source-library-title">
+                                <div class="section-heading compact">
+                                    <div>
+                                        <h2 id="source-library-title">案件来源</h2>
+                                        <p>事实、知识与推断分层</p>
+                                    </div>
+                                </div>
+                                <button
+                                    class="source-row is-selected"
+                                    type="button"
+                                    data-source-key="request"
+                                    aria-pressed="true"
+                                >
+                                    <span class="source-kind">直接证据</span>
+                                    <strong>SQL 注入脱敏请求</strong>
+                                    <span>官方样例夹具，可复核</span>
+                                </button>
+                                <button
+                                    class="source-row"
+                                    type="button"
+                                    data-source-key="asset"
+                                    aria-pressed="false"
+                                >
+                                    <span class="source-kind">资产上下文</span>
+                                    <strong>教学商城资产上下文</strong>
+                                    <span>演示夹具，非生产数据</span>
+                                </button>
+                                <button
+                                    class="source-row"
+                                    type="button"
+                                    data-source-key="knowledge"
+                                    aria-pressed="false"
+                                >
+                                    <span class="source-kind">领域知识</span>
+                                    <strong>CWE-89 研判基线</strong>
+                                    <span>等待 RAG 检索</span>
+                                </button>
+                                <p class="source-boundary" id="source-boundary">
+                                    当前查看官方样例请求载荷。它用于演示证据关联，不代表真实 XDR 流量。
+                                </p>
+                            </section>
+
+                            <section class="citation-viewer" aria-labelledby="citation-viewer-title">
+                                <div class="section-heading compact">
+                                    <div>
+                                        <h2 id="citation-viewer-title">检索结果</h2>
+                                        <p id="rag-result-meta">尚未执行检索</p>
+                                    </div>
+                                </div>
+                                <div class="result-state" id="rag-result">
+                                    <strong>结果会显示在这里</strong>
+                                    <p>每条结论应当能够回到具体来源，而不是只展示模型回答。</p>
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="view" id="view-capabilities" data-view-panel="capabilities" hidden>
+                    <header class="page-header lab-page-header">
+                        <div>
+                            <h2>工作台</h2>
+                            <p>集成专业工具与智能体能力，可独立验证与调试，不干扰评审演示主线。</p>
+                        </div>
+                        <span class="source-badge">本地工具与智能体</span>
+                    </header>
+
+                    <div class="lab-switcher" role="group" aria-label="选择能力">
+                        <button class="lab-switch is-active" type="button" data-lab="chat" aria-pressed="true">智能对话</button>
+                        <button class="lab-switch" type="button" data-lab="ctf" aria-pressed="false">CTF 攻防</button>
+                        <button class="lab-switch" type="button" data-lab="threat" aria-pressed="false">威胁分析</button>
+                        <button class="lab-switch" type="button" data-lab="code" aria-pressed="false">代码扫描</button>
+                        <button class="lab-switch" type="button" data-lab="cwe" aria-pressed="false">CWE 知识库</button>
+                        <button class="lab-switch" type="button" data-lab="ooda" aria-pressed="false">OODA 调试</button>
+                    </div>
+
+                    <section class="lab-panel is-active" id="lab-chat" data-lab-panel="chat" aria-labelledby="lab-chat-title">
+                        <div class="lab-panel-heading">
+                            <div>
+                                <span class="summary-kicker">智能体入口</span>
+                                <h3 id="lab-chat-title">安全对话</h3>
+                                <p>自动识别安全事件，或固定使用安全运营分析模式。</p>
+                            </div>
+                            <span class="service-state state-ready">已恢复</span>
+                        </div>
+
+                        <div class="chat-layout">
+                            <section class="conversation" aria-label="安全对话记录">
+                                <div class="conversation-log" id="chat-log" role="log" aria-live="polite">
+                                    <article class="chat-message assistant">
+                                        <div class="message-meta">
+                                            <strong>CangSight</strong>
+                                            <span>本地智能体</span>
+                                        </div>
+                                        <p>请描述安全事件、异常行为或需要核验的线索。涉及工具调用时，结果会单独列出。</p>
+                                    </article>
+                                </div>
+                                <form class="composer" id="chat-form">
+                                    <label for="chat-input">输入安全问题</label>
+                                    <textarea
+                                        id="chat-input"
+                                        rows="3"
+                                        placeholder="例如：分析这条 WebShell 告警并说明需要补充哪些证据"
+                                        aria-describedby="chat-help"
+                                    ></textarea>
+                                    <div class="composer-actions">
+                                        <p id="chat-help">回答依赖当前模型配置，工具结果与模型结论分开显示。</p>
+                                        <button class="button button-primary" id="chat-submit" type="submit">发送分析</button>
+                                    </div>
+                                </form>
+                            </section>
+
+                            <aside class="chat-context" aria-labelledby="chat-context-title">
+                                <h3 id="chat-context-title">分析方式</h3>
+                                <label for="chat-type">输入类型</label>
+                                <select id="chat-type">
+                                    <option value="">自动识别</option>
+                                    <option value="security_event">安全事件</option>
+                                </select>
+                                <div class="tool-result-panel" id="chat-tool-results">
+                                    <strong>工具调用</strong>
+                                    <p>尚未调用工具。需要扫描、检索或流量分析时会显示执行结果。</p>
+                                </div>
+                            </aside>
+                        </div>
+                    </section>
+
+                    <section class="lab-panel" id="lab-threat" data-lab-panel="threat" aria-labelledby="lab-threat-title" hidden>
+                        <div class="lab-panel-heading">
+                            <div>
+                                <span class="summary-kicker">异步智能体任务</span>
+                                <h3 id="lab-threat-title">威胁分析</h3>
+                                <p>创建 CangSight 运行，保留真实状态和原始结果，不生成随机指标。</p>
+                            </div>
+                            <span class="service-state state-ready" id="threat-state">等待输入</span>
+                        </div>
+
+                        <div class="analysis-layout">
+                            <form class="analysis-form" id="threat-form">
+                                <label for="threat-description">安全事件描述</label>
+                                <textarea
+                                    id="threat-description"
+                                    rows="7"
+                                    placeholder="例如：WAF 检测到未授权文件写入，随后主机出现异常外联"
+                                    aria-describedby="threat-help"
+                                ></textarea>
+                                <p id="threat-help">建议提供时间、资产、来源、目标、告警类型和已知证据。</p>
+
+                                <div class="form-grid">
+                                    <label>
+                                        <span>分析类型</span>
+                                        <select id="threat-type">
+                                            <option value="comprehensive">综合分析</option>
+                                            <option value="traffic">流量分析</option>
+                                            <option value="endpoint">端点分析</option>
+                                            <option value="identity">身份分析</option>
+                                        </select>
+                                    </label>
+                                    <label>
+                                        <span>时间范围</span>
+                                        <select id="threat-time-range">
+                                            <option value="1h">最近 1 小时</option>
+                                            <option value="24h">最近 24 小时</option>
+                                            <option value="7d">最近 7 天</option>
+                                        </select>
+                                    </label>
+                                </div>
+
+                                <button class="button button-primary" id="threat-submit" type="submit">创建分析任务</button>
+                            </form>
+
+                            <section class="analysis-result" id="threat-result" aria-labelledby="threat-result-title">
+                                <div class="result-heading">
+                                    <h3 id="threat-result-title">分析结果</h3>
+                                    <span id="threat-run-id">尚未创建运行</span>
+                                </div>
+                                <div class="result-state" id="threat-result-content">
+                                    <strong>等待安全事件</strong>
+                                    <p>提交后会显示运行状态、研判结论和可复核的原始步骤。</p>
+                                </div>
+                            </section>
+                        </div>
+                    </section>
+
+                    <section class="lab-panel" id="lab-code" data-lab-panel="code" aria-labelledby="lab-code-title" hidden>
+                        <div class="lab-panel-heading">
+                            <div>
+                                <span class="summary-kicker">本地静态分析</span>
+                                <h3 id="lab-code-title">代码扫描</h3>
+                                <p>上传或粘贴代码，调用本地威胁分析器生成 CWE、风险和修复建议。特别支持鸿蒙仓颉语言与 HarmonyOS 组件扫描。</p>
+                            </div>
+                            <span class="service-state state-ready" id="code-state">等待代码</span>
+                        </div>
+
+                        <div class="code-layout">
+                            <form class="code-input-panel" id="code-form">
+                                <label for="code-filename">文件名</label>
+                                <input id="code-filename" type="text" value="sample.py" autocomplete="off">
+
+                                <label class="file-picker" for="code-file">
+                                    <strong>选择本地代码文件</strong>
+                                    <span id="code-file-label">文件仅在浏览器读取，不会上传到云端</span>
+                                </label>
+                                <input
+                                    class="visually-hidden"
+                                    id="code-file"
+                                    type="file"
+                                    accept=".py,.js,.ts,.java,.go,.php,.c,.cpp,.h,.cs,.rb,.rs,.txt,.cj,.cjj,.json,.yaml,.yml"
+                                >
+
+                                <label for="code-content">代码内容</label>
+                                <textarea
+                                    class="code-editor"
+                                    id="code-content"
+                                    rows="14"
+                                    spellcheck="false"
+                                    placeholder="粘贴需要扫描的代码。支持语言: C/C++/Cangjie/鸿蒙仓颉/Java/Python/JavaScript/TypeScript/Go/PHP/Rust"
+                                ></textarea>
+                                <p>单个文件建议不超过 1 MB。支持语言：C、C++、<strong>鸿蒙仓颉(Cangjie)</strong>、Java、Python、JavaScript、TypeScript、Go、PHP、Rust。扫描结果来自本地规则和分析器。</p>
+                                <button class="button button-primary" id="code-submit" type="submit">开始扫描</button>
+                            </form>
+
+                            <section class="code-result-panel" aria-labelledby="code-result-title">
+                                <div class="result-heading">
+                                    <h3 id="code-result-title">扫描结果</h3>
+                                    <span id="code-risk">尚未计算风险</span>
+                                </div>
+                                <dl class="scan-metrics" aria-label="漏洞数量">
+                                    <div><dt>严重</dt><dd id="scan-critical">0</dd></div>
+                                    <div><dt>高危</dt><dd id="scan-high">0</dd></div>
+                                    <div><dt>中危</dt><dd id="scan-medium">0</dd></div>
+                                    <div><dt>低危</dt><dd id="scan-low">0</dd></div>
+                                </dl>
+                                <div class="finding-list" id="code-findings">
+                                    <div class="result-state">
+                                        <strong>尚无扫描结果</strong>
+                                        <p>发现项会显示 CWE、代码位置、严重度和建议。</p>
+                                    </div>
+                                </div>
+                            </section>
+                        </div>
+                    </section>
+
+                    <section class="lab-panel" id="lab-cwe" data-lab-panel="cwe" aria-labelledby="lab-cwe-title" hidden>
+                        <div class="lab-panel-heading">
+                            <div>
+                                <span class="summary-kicker">本地领域知识</span>
+                                <h3 id="lab-cwe-title">CWE 知识库</h3>
+                                <p>按漏洞名称、编号或中文关键词检索描述与修复建议。</p>
+                            </div>
+                            <span class="service-state state-checking" id="cwe-state">尚未加载</span>
+                        </div>
+
+                        <form class="cwe-toolbar" id="cwe-form">
+                            <label for="cwe-query">搜索知识库</label>
+                            <div class="input-action">
+                                <input id="cwe-query" type="search" placeholder="例如：SQL 注入、CWE-89、路径遍历">
+                                <button class="button button-primary" type="submit">搜索</button>
+                            </div>
+                        </form>
+
+                        <div class="cwe-layout">
+                            <section class="cwe-list-panel" aria-labelledby="cwe-list-title">
+                                <div class="result-heading">
+                                    <h3 id="cwe-list-title">知识条目</h3>
+                                </div>
+                                <div class="cwe-list" id="cwe-list">
+                                    <div class="result-state">
+                                        <strong>等待加载</strong>
+                                        <p>打开此能力后会读取本地 CWE 知识库。</p>
+                                    </div>
+                                </div>
+                            </section>
+                            <section class="cwe-detail" id="cwe-detail" aria-labelledby="cwe-detail-title">
+                                <span class="summary-kicker">条目详情</span>
+                                <h3 id="cwe-detail-title">选择一个 CWE 条目</h3>
+                                <p>这里会显示漏洞描述、严重度和修复建议。</p>
+                            </section>
+                        </div>
+                    </section>
+
+                    <section class="lab-panel" id="lab-ctf" data-lab-panel="ctf" aria-labelledby="lab-ctf-title" hidden>
+                        <div class="lab-panel-heading">
+                            <div>
+                                <span class="summary-kicker">授权靶场分析</span>
+                                <h3 id="lab-ctf-title">CTF 攻防助手</h3>
+                                <p>分析题目、规划步骤和调用 CTF 工具，仅用于竞赛或明确授权环境。</p>
+                            </div>
+                            <span class="service-state state-pending" id="ctf-state">需要授权确认</span>
+                        </div>
+
+                        <div class="ctf-layout">
+                            <form class="ctf-form" id="ctf-form">
+                                <label for="ctf-challenge">题目或靶场描述</label>
+                                <textarea
+                                    id="ctf-challenge"
+                                    rows="9"
+                                    placeholder="粘贴题目、源码或明确授权的靶场信息"
+                                    aria-describedby="ctf-help"
+                                ></textarea>
+                                <p id="ctf-help">请勿填写未授权公网目标。工具调用可能访问你提供的目标地址。</p>
+
+                                <label class="approval-confirm">
+                                    <input id="ctf-authorized" type="checkbox">
+                                    <span>我确认这是竞赛题目、教学靶场或已获得明确授权的测试环境</span>
+                                </label>
+
+                                <button class="button button-primary" id="ctf-submit" type="submit" disabled>开始 CTF 分析</button>
+                            </form>
+
+                            <section class="ctf-result" aria-labelledby="ctf-result-title">
+                                <div class="result-heading">
+                                    <h3 id="ctf-result-title">分析报告</h3>
+                                    <span>模型与工具协同</span>
+                                </div>
+                                <div class="result-state" id="ctf-result-content">
+                                    <strong>等待授权题目</strong>
+                                    <p>报告会区分模型分析、工具调用与实际返回结果。</p>
+                                </div>
+                            </section>
+                        </div>
+                    </section>
+
+                    <section class="lab-panel" id="lab-ooda" data-lab-panel="ooda" aria-labelledby="lab-ooda-title" hidden>
+                        <div class="lab-panel-heading">
+                            <div>
+                                <span class="summary-kicker">决策循环调试</span>
+                                <h3 id="lab-ooda-title">OODA 调试台</h3>
+                                <p>独立观察 Observe、Orient、Decide、Act 与反思结果。</p>
+                            </div>
+                            <span class="service-state state-ready" id="ooda-state">等待目标</span>
+                        </div>
+
+                        <form class="ooda-form" id="ooda-form">
+                            <label for="ooda-objective">任务目标</label>
+                            <div class="input-action">
+                                <input
+                                    id="ooda-objective"
+                                    type="search"
+                                    value="分析 WebShell 告警并形成可验证的处置建议"
+                                >
+                                <button class="button button-primary" id="ooda-run" type="submit">运行循环</button>
+                            </div>
+                            <div class="form-secondary-actions">
+                                <button class="button button-secondary" id="ooda-step" type="button">单步执行</button>
+                                <button class="button button-quiet" id="ooda-reset" type="button">重置</button>
+                                <span>已完成循环：<strong id="ooda-cycle-count">0</strong></span>
+                            </div>
+                        </form>
+
+                        <div class="ooda-grid">
+                            <article class="ooda-stage" data-ooda-stage="observe">
+                                <span>Observe</span>
+                                <h3>观察</h3>
+                                <p id="ooda-observe">等待执行</p>
+                            </article>
+                            <article class="ooda-stage" data-ooda-stage="orient">
+                                <span>Orient</span>
+                                <h3>研判</h3>
+                                <p id="ooda-orient">等待执行</p>
+                            </article>
+                            <article class="ooda-stage" data-ooda-stage="decide">
+                                <span>Decide</span>
+                                <h3>决策</h3>
+                                <p id="ooda-decide">等待执行</p>
+                            </article>
+                            <article class="ooda-stage" data-ooda-stage="act">
+                                <span>Act</span>
+                                <h3>行动</h3>
+                                <p id="ooda-act">等待执行</p>
+                            </article>
+                        </div>
+
+                        <section class="reflexion-panel" aria-labelledby="reflexion-title">
+                            <span class="summary-kicker">Reflexion</span>
+                            <h3 id="reflexion-title">策略反思</h3>
+                            <p id="ooda-reflexion">完成循环后显示策略修正与下一轮建议。</p>
+                        </section>
+                    </section>
+                </section>
+
+                <section class="view" id="view-audit" data-view-panel="audit" hidden>
+                    <header class="page-header">
+                        <div>
+                            <h2>EAT 审计链</h2>
+                            <p>核对智能体的输入、决策、工具调用、审批和结果。</p>
+                        </div>
+                        <div class="page-actions">
+                            <button class="button button-secondary" id="verify-audit" type="button">验证审计链</button>
+                            <button class="button button-quiet" id="refresh-audit" type="button">刷新</button>
+                        </div>
+                    </header>
+
+                    <div class="audit-layout">
+                        <section class="audit-overview" aria-labelledby="audit-overview-title">
+                            <span class="summary-kicker">可信审计</span>
+                            <h2 id="audit-overview-title">暂无可验证会话</h2>
+                            <p id="audit-overview-text">运行智能体后，EAT 记录将在这里显示。回放事件会明确标记为本地演示。</p>
+                            <dl>
+                                <div><dt>会话数量</dt><dd id="audit-session-count">0</dd></div>
+                                <div><dt>链状态</dt><dd id="audit-chain-state">等待数据</dd></div>
+                            </dl>
+                        </section>
+
+                        <section class="audit-events" aria-labelledby="audit-events-title">
+                            <div class="section-heading compact">
+                                <div>
+                                    <h2 id="audit-events-title">审计事件</h2>
+                                    <p>按发生顺序展示，不隐藏失败动作</p>
+                                </div>
+                            </div>
+                            <ol class="audit-event-list" id="audit-event-list">
+                                <li>
+                                    <time datetime="">等待运行</time>
+                                    <div>
+                                        <strong>尚无审计事件</strong>
+                                        <p>连接真实运行或完成一次案件回放后再查看。</p>
+                                    </div>
+                                </li>
+                            </ol>
+                        </section>
+                    </div>
+                </section>
+
+                <section class="view" id="view-connections" data-view-panel="connections" hidden>
+                    <header class="page-header">
+                        <div>
+                            <h2>系统设置</h2>
+                            <p>明确区分已连接服务、未申请环境和本地降级能力。</p>
+                        </div>
+                        <button class="button button-secondary" id="check-services" type="button">重新检查</button>
+                    </header>
+
+                    <div class="connection-layout">
+                        <section class="service-primary" aria-labelledby="gateway-service-title">
+                            <div class="service-heading">
+                                <div>
+                                    <span class="service-type">本地核心服务</span>
+                                    <h2 id="gateway-service-title">鉴真本地网关</h2>
+                                </div>
+                                <span class="service-state state-checking" id="gateway-state">检查中</span>
+                            </div>
+                            <p>提供智能体运行、RAG、HITL 与 EAT 审计接口。</p>
+                            <dl>
+                                <div><dt>地址</dt><dd id="gateway-url">http://localhost:7800</dd></div>
+                                <div><dt>技能数量</dt><dd id="gateway-skills">等待检查</dd></div>
+                                <div><dt>知识块</dt><dd id="gateway-rag">等待检查</dd></div>
+                            </dl>
+                        </section>
+
+                        <div class="service-list">
+                            <article class="service-row" id="xdr-service-row">
+                                <div>
+                                    <span class="service-type">安全平台</span>
+                                    <h2 id="xdr-service-title">XDR 平台</h2>
+                                    <p id="xdr-service-desc">尚未配置。可选择 Wazuh 或通用 REST 厂商对接真实告警数据。</p>
+                                </div>
+                                <span class="service-state state-pending" id="xdr-service-state">未配置</span>
+                            </article>
+                            <article class="service-row">
+                                <div>
+                                    <span class="service-type">工具服务</span>
+                                    <h2>Sympas MCP</h2>
+                                    <p id="sympas-url">等待网关返回服务地址。</p>
+                                </div>
+                                <span class="service-state state-checking" id="sympas-state">检查中</span>
+                            </article>
+                            <article class="service-row">
+                                <div>
+                                    <span class="service-type">降级能力</span>
+                                    <h2>官方样本回放</h2>
+                                    <p>不依赖外网，可支持录屏与现场演示。</p>
+                                </div>
+                                <span class="service-state state-ready">已就绪</span>
+                            </article>
+                        </div>
+                    </div>
+
+                    <fieldset class="demo-settings">
+                        <legend>演示偏好</legend>
+                        <label class="radio-option">
+                            <input type="radio" name="demo-mode" value="replay" checked>
+                            <span>
+                                <strong>官方样本回放</strong>
+                                <small>当前推荐，稳定且可复核</small>
+                            </span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="demo-mode" value="live">
+                            <span>
+                                <strong>实时运行</strong>
+                                <small>连接本地网关中的最新任务</small>
+                            </span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="demo-mode" value="xdr" disabled>
+                            <span>
+                                <strong>真实 XDR</strong>
+                                <small>测试环境和授权凭据就绪后启用</small>
+                            </span>
+                        </label>
+                    </fieldset>
+
+                    <section class="xdr-settings" aria-labelledby="xdr-settings-title">
+                        <div class="lab-panel-heading">
+                            <div>
+                                <span class="summary-kicker">安全平台集成</span>
+                                <h2 id="xdr-settings-title">XDR 平台配置</h2>
+                                <p id="xdr-subtitle">选择平台类型后填写连接信息，保存后将持久化至本地，直到下次修改。</p>
+                            </div>
+                            <span class="service-state state-pending" id="xdr-state">未配置</span>
+                        </div>
+
+                        <!-- 平台卡片选择 -->
+                        <div class="xdr-provider-cards" role="radiogroup" aria-label="XDR 平台选择">
+                            <label class="xdr-provider-card is-active" data-provider="wazuh">
+                                <input type="radio" name="xdr-provider-card" value="wazuh" checked>
+                                <div class="xdr-card-icon" aria-hidden="true">🔐</div>
+                                <div class="xdr-card-body">
+                                    <strong>Wazuh</strong>
+                                    <small>开源 XDR 平台，接入方式：Manager REST API + Indexer 告警库</small>
+                                </div>
+                                <div class="xdr-card-check" aria-hidden="true">✓</div>
+                            </label>
+                            <label class="xdr-provider-card" data-provider="splunk">
+                                <input type="radio" name="xdr-provider-card" value="splunk">
+                                <div class="xdr-card-icon" aria-hidden="true">🟠</div>
+                                <div class="xdr-card-body">
+                                    <strong>Splunk ES</strong>
+                                    <small>国际主流 SIEM，接入方式：Bearer Token + REST 搜索</small>
+                                </div>
+                                <div class="xdr-card-check" aria-hidden="true">✓</div>
+                            </label>
+                            <label class="xdr-provider-card" data-provider="elastic">
+                                <input type="radio" name="xdr-provider-card" value="elastic">
+                                <div class="xdr-card-icon" aria-hidden="true">🟢</div>
+                                <div class="xdr-card-body">
+                                    <strong>Elastic Security</strong>
+                                    <small>ELK 安全模块，接入方式：API Key + 检测引擎 API</small>
+                                </div>
+                                <div class="xdr-card-check" aria-hidden="true">✓</div>
+                            </label>
+                            <label class="xdr-provider-card" data-provider="sentinel">
+                                <input type="radio" name="xdr-provider-card" value="sentinel">
+                                <div class="xdr-card-icon" aria-hidden="true">🔷</div>
+                                <div class="xdr-card-body">
+                                    <strong>Microsoft Sentinel</strong>
+                                    <small>Azure 云原生 SIEM，接入方式：Azure AD OAuth2</small>
+                                </div>
+                                <div class="xdr-card-check" aria-hidden="true">✓</div>
+                            </label>
+                            <label class="xdr-provider-card" data-provider="qradar">
+                                <input type="radio" name="xdr-provider-card" value="qradar">
+                                <div class="xdr-card-icon" aria-hidden="true">🔵</div>
+                                <div class="xdr-card-body">
+                                    <strong>IBM QRadar</strong>
+                                    <small>企业级 SIEM，接入方式：SEC Token + Offenses API</small>
+                                </div>
+                                <div class="xdr-card-check" aria-hidden="true">✓</div>
+                            </label>
+                            <label class="xdr-provider-card" data-provider="aliyun_sas">
+                                <input type="radio" name="xdr-provider-card" value="aliyun_sas">
+                                <div class="xdr-card-icon" aria-hidden="true">🟡</div>
+                                <div class="xdr-card-body">
+                                    <strong>阿里云安全中心</strong>
+                                    <small>国内云安全，接入方式：AccessKey AK/SK 签名</small>
+                                </div>
+                                <div class="xdr-card-check" aria-hidden="true">✓</div>
+                            </label>
+                            <label class="xdr-provider-card" data-provider="huawei_secmaster">
+                                <input type="radio" name="xdr-provider-card" value="huawei_secmaster">
+                                <div class="xdr-card-icon" aria-hidden="true">🔴</div>
+                                <div class="xdr-card-body">
+                                    <strong>华为云 SecMaster</strong>
+                                    <small>华为云态势感知，接入方式：AK/SK HMAC-SHA256 签名</small>
+                                </div>
+                                <div class="xdr-card-check" aria-hidden="true">✓</div>
+                            </label>
+                        </div>
+
+                        <!-- 连接方式可视化徽章 -->
+                        <div class="xdr-connection-hint" id="xdr-connection-hint">
+                            <span class="xdr-method-chip">⚙ 连接方式：API Key 认证</span>
+                            <span class="xdr-method-chip xdr-method-chip--passive">📥 被动接收 / 主动查询</span>
+                        </div>
+
+                        <form id="xdr-form">
+                            <div class="model-form-grid xdr-form-grid">
+                                <!-- 隐藏的真实 provider select，保存时使用 -->
+                                <select id="xdr-provider" class="visually-hidden" tabindex="-1" aria-hidden="true">
+                                    <option value="wazuh">Wazuh</option>
+                                    <option value="splunk">Splunk ES</option>
+                                    <option value="elastic">Elastic Security</option>
+                                    <option value="sentinel">Microsoft Sentinel</option>
+                                    <option value="qradar">IBM QRadar</option>
+                                    <option value="aliyun_sas">阿里云安全中心</option>
+                                    <option value="huawei_secmaster">华为云 SecMaster</option>
+                                </select>
+
+                                <label class="xdr-form-span-2">
+                                    <span>Manager Base URL</span>
+                                    <input id="xdr-base-url" type="url" autocomplete="url" placeholder="Wazuh: https://localhost:55000  |  通用 REST: https://your-siem.example.com">
+                                </label>
+
+                                <!-- Wazuh: Manager 凭据 -->
+                                <div id="xdr-wazuh-manager-credentials" class="xdr-form-span-2 xdr-field-wazuh xdr-field-grid">
+                                    <div class="xdr-subsection-title">
+                                        <h4>Manager API 凭据</h4>
+                                        <small>用于获取 JWT、Agent 管理、下发处置</small>
+                                    </div>
+                                    <label>
+                                        <span>用户名</span>
+                                        <input id="xdr-username" type="text" autocomplete="username" placeholder="wazuh-wui / admin">
+                                    </label>
+                                    <label>
+                                        <span>密码</span>
+                                        <input id="xdr-password" type="password" autocomplete="new-password" placeholder="已配置时留空即可保留">
+                                    </label>
+                                </div>
+
+                                <!-- Wazuh: Indexer 凭据 -->
+                                <div id="xdr-wazuh-indexer-credentials" class="xdr-form-span-2 xdr-field-wazuh xdr-field-grid">
+                                    <div class="xdr-subsection-title xdr-subsection-title--alt">
+                                        <h4>Indexer (OpenSearch) 告警库</h4>
+                                        <small>用于读取告警列表 / 事件详情，默认端口 9200</small>
+                                    </div>
+                                    <label>
+                                        <span>Base URL</span>
+                                        <input id="xdr-indexer-url" type="url" autocomplete="url" placeholder="默认: https://localhost:9200">
+                                    </label>
+                                    <label>
+                                        <span>用户名</span>
+                                        <input id="xdr-indexer-user" type="text" autocomplete="username" placeholder="admin">
+                                    </label>
+                                    <label>
+                                        <span>密码</span>
+                                        <input id="xdr-indexer-password" type="password" autocomplete="new-password" placeholder="已配置时留空即可保留">
+                                    </label>
+                                </div>
+
+                                <!-- 通用 REST 厂商字段组（Splunk/Elastic/Sentinel/QRadar/阿里云/华为云 共享） -->
+                                <div id="xdr-generic-credentials" class="xdr-form-span-2 xdr-field-generic xdr-field-grid">
+                                    <div class="xdr-subsection-title">
+                                        <h4>通用 REST 接入凭据</h4>
+                                        <small>用于对接 Splunk / Elastic / Sentinel / QRadar / 阿里云 / 华为云</small>
+                                    </div>
+                                    <label class="xdr-form-span-2">
+                                        <span>认证方式</span>
+                                        <select id="xdr-auth-type">
+                                            <option value="">请选择认证方式</option>
+                                            <option value="bearer_token">Bearer Token (Splunk / Sentinel)</option>
+                                            <option value="api_key_header">API Key Header (Elastic / QRadar)</option>
+                                            <option value="basic_auth">Basic Auth (用户名+密码)</option>
+                                            <option value="aliyun_sig">阿里云 AK/SK 签名</option>
+                                            <option value="huawei_sig">华为云 AK/SK 签名</option>
+                                        </select>
+                                    </label>
+                                    <label id="xdr-auth-header-name-label" class="xdr-field-generic-auth-header">
+                                        <span>认证 Header 名</span>
+                                        <input id="xdr-auth-header-name" type="text" placeholder="如 Authorization / SEC / X-Api-Key">
+                                    </label>
+                                    <label>
+                                        <span>API Key / Token / AccessKey ID</span>
+                                        <input id="xdr-generic-api-key" type="password" autocomplete="new-password" placeholder="已配置时留空即可保留">
+                                    </label>
+                                    <label id="xdr-generic-username-label" class="xdr-field-generic-basic">
+                                        <span>用户名 (Basic Auth)</span>
+                                        <input id="xdr-generic-username" type="text" autocomplete="username" placeholder="仅 Basic Auth 填写">
+                                    </label>
+                                    <label id="xdr-generic-password-label" class="xdr-field-generic-basic">
+                                        <span>密码 / AccessKey Secret (Basic Auth / 阿里云 / 华为云)</span>
+                                        <input id="xdr-generic-password" type="password" autocomplete="new-password" placeholder="已配置时留空即可保留">
+                                    </label>
+                                </div>
+
+                                <!-- 通用 REST 告警查询配置 -->
+                                <div id="xdr-generic-endpoints" class="xdr-form-span-2 xdr-field-generic xdr-field-grid">
+                                    <div class="xdr-subsection-title xdr-subsection-title--alt">
+                                        <h4>告警查询配置</h4>
+                                        <small>选择平台时自动填充预设模板，可手动调整</small>
+                                    </div>
+                                    <label class="xdr-form-span-2">
+                                        <span>告警查询端点</span>
+                                        <input id="xdr-alerts-endpoint" type="text" placeholder="如 /api/detection_engine/search">
+                                    </label>
+                                    <label class="xdr-form-span-2">
+                                        <span>告警列表 JSON 路径</span>
+                                        <input id="xdr-alerts-json-path" type="text" placeholder="如 data.hits.hits 或 results 或空">
+                                    </label>
+                                    <label id="xdr-tenant-id-label" class="xdr-field-generic-tenant">
+                                        <span>Azure 租户 ID (Sentinel)</span>
+                                        <input id="xdr-tenant-id" type="text" placeholder="Sentinel 专用：xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                                    </label>
+                                    <label id="xdr-region-label" class="xdr-field-generic-region">
+                                        <span>区域 (Region)</span>
+                                        <input id="xdr-region" type="text" placeholder="阿里云: cn-hangzhou | 华为云: cn-north-4">
+                                    </label>
+                                </div>
+
+                                <label>
+                                    <span>请求超时 (秒)</span>
+                                    <input id="xdr-timeout" type="number" min="5" max="120" value="30">
+                                </label>
+                                <label class="checkbox-option xdr-checkbox-inline">
+                                    <input id="xdr-verify-ssl" type="checkbox" checked>
+                                    <span>验证 SSL 证书（本地部署时请关闭）</span>
+                                </label>
+                            </div>
+                            <p class="form-help" id="xdr-config-note">正在读取当前配置。</p>
+                            <div class="page-actions model-actions">
+                                <button class="button button-secondary" id="xdr-test" type="button">测试连接</button>
+                                <button class="button button-primary" id="xdr-save" type="submit">保存配置</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section class="model-settings" aria-labelledby="model-settings-title">
+                        <div class="lab-panel-heading">
+                            <div>
+                                <span class="summary-kicker">本地运行配置</span>
+                                <h2 id="model-settings-title">模型配置</h2>
+                                <p>恢复原版模型入口。API Key 不会回显，保存操作只写入本地配置。</p>
+                            </div>
+                            <span class="service-state state-checking" id="model-state">正在读取</span>
+                        </div>
+
+                        <form id="model-form">
+                            <div class="model-form-grid">
+                                <label>
+                                    <span>模型服务商</span>
+                                    <select id="model-provider">
+                                        <option value="">请选择模型服务商</option>
+                                        <option value="openai">通用接口（OpenAI 兼容）</option>
+                                        <option value="deepseek">DeepSeek</option>
+                                        <option value="tongyi">通义千问</option>
+                                        <option value="qwen">Qwen</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    <span>模型名称</span>
+                                    <input id="model-name" type="text" autocomplete="off"
+                                        placeholder="如 deepseek-chat / qwen-max / gpt-4o，任意 OpenAI 兼容模型">
+                                </label>
+                                <label>
+                                    <span>Base URL</span>
+                                    <input id="model-base-url" type="url" autocomplete="url">
+                                </label>
+                                <label>
+                                    <span>API Key</span>
+                                    <input
+                                        id="model-api-key"
+                                        type="password"
+                                        autocomplete="new-password"
+                                        placeholder="已配置时留空即可保留"
+                                    >
+                                </label>
+                            </div>
+                            <p class="form-help" id="model-config-note">正在读取当前本地配置。</p>
+                            <div class="page-actions model-actions">
+                                <button class="button button-secondary" id="model-test" type="button">测试连接</button>
+                                <button class="button button-primary" id="model-save" type="submit">保存配置</button>
+                            </div>
+                        </form>
+                    </section>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <dialog
+        class="approval-dialog"
+        id="approval-dialog"
+        aria-labelledby="approval-title"
+        aria-describedby="approval-description"
+    >
+        <form method="dialog">
+            <div class="approval-header">
+                <span class="risk-label risk-high">高风险动作</span>
+                <h2 id="approval-title">是否批准限时封禁？</h2>
+                <p id="approval-description">智能体已停在 HITL 节点。批准前请核对对象、影响和回滚方式。</p>
+            </div>
+
+            <dl class="approval-details">
+                <div>
+                    <dt>拟执行动作</dt>
+                    <dd id="approval-action-text">限时封禁 SQL 注入来源 IP</dd>
+                </div>
+                <div>
+                    <dt>动作对象</dt>
+                    <dd id="approval-target-text">203.0.113.24（脱敏保留地址）</dd>
+                </div>
+                <div>
+                    <dt>影响范围</dt>
+                    <dd id="approval-impact-text">仅拦截该来源对教学商城的访问</dd>
+                </div>
+                <div>
+                    <dt>回滚方式</dt>
+                    <dd id="approval-rollback-text">15 分钟后自动解除，也可立即撤销策略</dd>
+                </div>
+            </dl>
+
+            <label class="approval-confirm">
+                <input id="approval-confirm" type="checkbox">
+                <span>我已核对动作影响和回滚方案</span>
+            </label>
+
+            <div class="dialog-actions">
+                <button class="button button-quiet" id="reject-action" value="reject" type="submit">拒绝，不执行</button>
+                <button class="button button-primary" id="approve-action" value="approve" type="submit" disabled>批准样例处置</button>
+            </div>
+        </form>
+    </dialog>
+
+    <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+    <div class="visually-hidden" id="live-region" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="js/xdr-monitor.js?v=20260828b"></script>
+    <script type="module" src="js/attack-chain.js?v=20260901d"></script>
+    <script type="module" src="js/app.js?v=20260828b"></script>
+</body>
+</html>
+

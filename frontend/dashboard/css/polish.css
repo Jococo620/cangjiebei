@@ -1,0 +1,236 @@
+/*
+ * 鉴真 UI · 华丽层（视觉增强，不改布局 / 不改功能）
+ * 在 dashboard.css 末尾最后引入，用更高的级联优先级覆盖基础皮肤。
+ * 原则：只动背景 / 阴影 / 渐变 / 描边 / 动画，绝不改 grid/flex 结构、间距与尺寸。
+ */
+
+/* ===== 1. 动态极光背景（所有页面，始终在内容之后） ===== */
+body {
+    background: transparent;
+}
+
+body::before,
+body::after {
+    content: "";
+    position: fixed;
+    z-index: -1;
+    width: 58vmax;
+    height: 58vmax;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(90px);
+    will-change: transform;
+}
+
+body::before {
+    top: -18vmax;
+    left: -14vmax;
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
+    animation: aurora-a 26s ease-in-out infinite alternate;
+}
+
+body::after {
+    right: -16vmax;
+    bottom: -20vmax;
+    background: rgb(109 40 217 / 0.20);
+    animation: aurora-b 34s ease-in-out infinite alternate;
+}
+
+@keyframes aurora-a {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to   { transform: translate3d(9vmax, 7vmax, 0) scale(1.18); }
+}
+
+@keyframes aurora-b {
+    from { transform: translate3d(0, 0, 0) scale(1.16); }
+    to   { transform: translate3d(-8vmax, -6vmax, 0) scale(1); }
+}
+
+/* ===== 2. 顶栏玻璃拟态 + 底部强调描边 ===== */
+.topbar {
+    border-bottom-color: color-mix(in srgb, var(--accent) 16%, var(--border));
+    background: color-mix(in srgb, var(--surface) 82%, transparent);
+    box-shadow: 0 1px 0 rgb(36 67 117 / 0.04), 0 10px 28px rgb(36 67 117 / 0.06);
+    -webkit-backdrop-filter: saturate(160%) blur(16px);
+    backdrop-filter: saturate(160%) blur(16px);
+}
+
+/* ===== 3. 按钮 · 渐变 + 光晕 + 扫光 ===== */
+.button-primary {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+    box-shadow:
+        0 8px 22px color-mix(in srgb, var(--accent) 32%, transparent),
+        inset 0 1px 0 rgb(255 255 255 / 0.22);
+}
+
+.button-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent-strong) 100%);
+    transform: translateY(-1px);
+    box-shadow:
+        0 12px 30px color-mix(in srgb, var(--accent) 44%, transparent),
+        inset 0 1px 0 rgb(255 255 255 / 0.26);
+}
+
+.button-primary::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(115deg, transparent 32%, rgb(255 255 255 / 0.24) 50%, transparent 68%);
+    transform: translateX(-130%);
+    pointer-events: none;
+    transition: transform 0.55s var(--ease-out);
+}
+
+.button-primary:hover::before {
+    transform: translateX(130%);
+}
+
+.button-secondary {
+    box-shadow: 0 2px 6px rgb(36 67 117 / 0.05);
+}
+
+.button-secondary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+/* ===== 4. 侧栏 · 激活项渐变 + 左强调条 ===== */
+.nav-link.is-active {
+    background: linear-gradient(90deg, var(--surface-accent), color-mix(in srgb, var(--surface-accent) 26%, var(--surface)));
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* ===== 5. 面板悬停 · 轻微上浮 + 强调光晕 ===== */
+.decision-panel,
+.evidence-panel {
+    transition:
+        box-shadow var(--duration-fast) var(--ease-out),
+        transform var(--duration-fast) var(--ease-out),
+        border-color var(--duration-fast) var(--ease-out);
+}
+
+.decision-panel:hover,
+.evidence-panel:hover {
+    border-color: color-mix(in srgb, var(--accent) 22%, var(--border));
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover), 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* ===== 6. 工作台首页 · 顶部 hero 强调条 ===== */
+.home-hero {
+    background: linear-gradient(180deg, var(--surface-raised) 0%, var(--surface) 100%);
+    box-shadow: var(--shadow-panel), inset 4px 0 0 var(--accent);
+    transition:
+        box-shadow var(--duration-base) var(--ease-out),
+        transform var(--duration-base) var(--ease-out);
+}
+
+.home-hero:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover), inset 4px 0 0 var(--accent);
+}
+
+/* 首页 CTA 呼吸光晕 */
+.home-demo-button {
+    animation: demo-glow 3.8s ease-in-out infinite;
+}
+
+@keyframes demo-glow {
+    0%, 100% { box-shadow: 0 12px 30px rgb(36 67 117 / 0.20); }
+    50%      { box-shadow: 0 12px 46px rgb(36 67 117 / 0.34); }
+}
+
+/* ===== 7. 能力轮盘 · 动态中心 + 入场动画 ===== */
+.wheel-hub-ring {
+    animation: wheel-ring-spin 18s linear infinite;
+}
+
+@keyframes wheel-ring-spin {
+    from { stroke-dashoffset: 0; }
+    to   { stroke-dashoffset: -54; }
+}
+
+.wheel-sector:hover,
+.wheel-sector:focus-visible {
+    filter: brightness(1.16) saturate(1.08) drop-shadow(0 0 10px rgb(255 255 255 / 0.4));
+}
+
+.capability-wheel svg {
+    animation: wheel-in 0.7s var(--ease-out) both;
+}
+
+@keyframes wheel-in {
+    from { opacity: 0; transform: scale(0.92) rotate(-4deg); }
+    to   { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+.capability-legend {
+    transition:
+        box-shadow var(--duration-base) var(--ease-out),
+        transform var(--duration-base) var(--ease-out),
+        border-color var(--duration-base) var(--ease-out);
+}
+
+.capability-legend:hover {
+    border-color: color-mix(in srgb, var(--accent) 20%, var(--border));
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+}
+
+.capability-legend-item {
+    animation: legend-in 0.5s var(--ease-out) both;
+}
+
+.capability-legend-item:nth-child(1) { animation-delay: 0.04s; }
+.capability-legend-item:nth-child(2) { animation-delay: 0.10s; }
+.capability-legend-item:nth-child(3) { animation-delay: 0.16s; }
+.capability-legend-item:nth-child(4) { animation-delay: 0.22s; }
+.capability-legend-item:nth-child(5) { animation-delay: 0.28s; }
+.capability-legend-item:nth-child(6) { animation-delay: 0.34s; }
+
+@keyframes legend-in {
+    from { opacity: 0; transform: translateX(-12px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ===== 8. 门户首页 · 流光标题 + 卡片入场 ===== */
+.portal-hero h1 {
+    background: linear-gradient(100deg, var(--text) 0%, var(--accent) 42%, var(--accent-hover) 58%, var(--text) 100%);
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    animation: text-shimmer 7s linear infinite;
+}
+
+@keyframes text-shimmer {
+    from { background-position: 0% 0; }
+    to   { background-position: -220% 0; }
+}
+
+.portal-entry {
+    animation: portal-in 0.55s var(--ease-out) both;
+}
+
+.portal-entry:nth-child(1) { animation-delay: 0.10s; }
+.portal-entry:nth-child(2) { animation-delay: 0.20s; }
+
+@keyframes portal-in {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.portal-entry:hover {
+    box-shadow: 0 20px 44px rgb(36 67 117 / 0.20), 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+/* ===== 9. AI 研判卡片 · 强调光晕 ===== */
+.decision-summary {
+    background:
+        radial-gradient(120% 150% at 100% 0%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 56%),
+        var(--text);
+    box-shadow: 0 18px 40px rgb(24 44 78 / 0.26);
+}

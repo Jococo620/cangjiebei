@@ -1,0 +1,2722 @@
+{
+  "ctf_port_scan": {
+    "skill_id": "ctf_port_scan",
+    "name": "CTF Port Scan",
+    "description": "端口扫描，检测目标主机开放的端口",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/port_scan",
+    "danger_level": "medium",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "目标主机IP地址"
+        },
+        "ports": {
+          "type": "array",
+          "description": "要扫描的端口列表"
+        }
+      },
+      "required": [
+        "host"
+      ]
+    }
+  },
+  "ctf_dir_brute": {
+    "skill_id": "ctf_dir_brute",
+    "name": "CTF Directory Brute Force",
+    "description": "目录爆破，发现Web应用隐藏的路径",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/dir_brute",
+    "danger_level": "medium",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "目标URL"
+        },
+        "paths": {
+          "type": "array",
+          "description": "自定义路径列表"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  "ctf_sql_inject": {
+    "skill_id": "ctf_sql_inject",
+    "name": "CTF SQL Injection Test",
+    "description": "SQL注入漏洞检测",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/sql_inject",
+    "danger_level": "high",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "目标URL"
+        },
+        "params": {
+          "type": "object",
+          "description": "查询参数"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  "ctf_xss_test": {
+    "skill_id": "ctf_xss_test",
+    "name": "CTF XSS Test",
+    "description": "XSS跨站脚本漏洞检测",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/xss_test",
+    "danger_level": "medium",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "目标URL"
+        },
+        "params": {
+          "type": "object",
+          "description": "查询参数"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  "ctf_upload_test": {
+    "skill_id": "ctf_upload_test",
+    "name": "CTF File Upload Test",
+    "description": "文件上传漏洞检测",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/upload_test",
+    "danger_level": "high",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "上传目标URL"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  "ctf_find_flag": {
+    "skill_id": "ctf_find_flag",
+    "name": "CTF Find Flag",
+    "description": "搜索文本中的Flag",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/find_flag",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "要搜索的文本"
+        },
+        "pattern": {
+          "type": "string",
+          "description": "Flag匹配模式"
+        }
+      },
+      "required": [
+        "text"
+      ]
+    }
+  },
+  "ctf_exploit_sqli": {
+    "skill_id": "ctf_exploit_sqli",
+    "name": "CTF SQL Injection Exploit",
+    "description": "SQL注入漏洞利用",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/exploit_sqli",
+    "danger_level": "critical",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "目标URL"
+        },
+        "param": {
+          "type": "string",
+          "description": "注入参数名"
+        },
+        "technique": {
+          "type": "string",
+          "description": "利用技术"
+        }
+      },
+      "required": [
+        "url",
+        "param"
+      ]
+    }
+  },
+  "ctf_exploit_lfi": {
+    "skill_id": "ctf_exploit_lfi",
+    "name": "CTF LFI Exploit",
+    "description": "LFI漏洞利用，读取敏感文件和flag",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/exploit_lfi",
+    "danger_level": "critical",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "目标URL"
+        },
+        "param": {
+          "type": "string",
+          "description": "文件参数名，默认file"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  "ctf_exploit_rce": {
+    "skill_id": "ctf_exploit_rce",
+    "name": "CTF RCE Exploit",
+    "description": "命令注入利用，执行系统命令获取flag",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/exploit_rce",
+    "danger_level": "critical",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "目标URL"
+        },
+        "param": {
+          "type": "string",
+          "description": "命令参数名，默认cmd"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  "ctf_http_request": {
+    "skill_id": "ctf_http_request",
+    "name": "CTF HTTP Request",
+    "description": "发送HTTP请求获取页面内容",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/http_request",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "type": "string",
+          "description": "HTTP方法"
+        },
+        "url": {
+          "type": "string",
+          "description": "目标URL"
+        },
+        "params": {
+          "type": "object",
+          "description": "查询参数"
+        },
+        "data": {
+          "type": "object",
+          "description": "请求体"
+        },
+        "headers": {
+          "type": "object",
+          "description": "请求头"
+        },
+        "cookies": {
+          "type": "object",
+          "description": "Cookie"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  "ctf_subdomain_scan": {
+    "skill_id": "ctf_subdomain_scan",
+    "name": "CTF Subdomain Scan",
+    "description": "子域名扫描，发现目标域名下的子域名",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/subdomain_scan",
+    "danger_level": "medium",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "domain": {
+          "type": "string",
+          "description": "目标域名"
+        },
+        "wordlist": {
+          "type": "array",
+          "description": "自定义子域名列表"
+        }
+      },
+      "required": [
+        "domain"
+      ]
+    }
+  },
+  "ctf_ssrf_test": {
+    "skill_id": "ctf_ssrf_test",
+    "name": "CTF SSRF Test",
+    "description": "SSRF服务器端请求伪造漏洞检测",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/ssrf_test",
+    "danger_level": "high",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "目标URL"
+        },
+        "params": {
+          "type": "object",
+          "description": "查询参数"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  "ctf_lfi_rfi_test": {
+    "skill_id": "ctf_lfi_rfi_test",
+    "name": "CTF LFI/RFI Test",
+    "description": "本地/远程文件包含漏洞检测",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/lfi_rfi_test",
+    "danger_level": "high",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "目标URL"
+        },
+        "params": {
+          "type": "object",
+          "description": "查询参数"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  "ctf_command_inject": {
+    "skill_id": "ctf_command_inject",
+    "name": "CTF Command Injection",
+    "description": "命令注入漏洞检测",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/command_inject",
+    "danger_level": "critical",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "目标URL"
+        },
+        "params": {
+          "type": "object",
+          "description": "查询参数"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  "ctf_sensitive_files": {
+    "skill_id": "ctf_sensitive_files",
+    "name": "CTF Sensitive Files",
+    "description": "敏感文件扫描，发现配置文件、备份文件、日志等",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/sensitive_files",
+    "danger_level": "medium",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "目标URL"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  "ctf_encode_decode": {
+    "skill_id": "ctf_encode_decode",
+    "name": "CTF Encode Decode",
+    "description": "编码解码工具，支持Base64/URL/Hex/ROT13/哈希等",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/encode_decode",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "待处理文本"
+        },
+        "operation": {
+          "type": "string",
+          "description": "操作类型，必须从以下值中选择：base64_encode|base64_decode|url_encode|url_decode|hex_encode|hex_decode|base32_encode|base32_decode|base58_encode|rot13|md5|sha256|sha1。注意：没有 rot13_decode（rot13 自身可逆），caesar_cipher 请改用 ctf_crypto_analysis 工具",
+          "enum": [
+            "base64_encode",
+            "base64_decode",
+            "url_encode",
+            "url_decode",
+            "hex_encode",
+            "hex_decode",
+            "base32_encode",
+            "base32_decode",
+            "base58_encode",
+            "rot13",
+            "md5",
+            "sha256",
+            "sha1"
+          ]
+        }
+      },
+      "required": [
+        "text",
+        "operation"
+      ]
+    }
+  },
+  "ctf_service_fingerprint": {
+    "skill_id": "ctf_service_fingerprint",
+    "name": "CTF Service Fingerprint",
+    "description": "服务指纹识别，获取端口banner信息",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/service_fingerprint",
+    "danger_level": "medium",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "目标主机"
+        },
+        "ports": {
+          "type": "array",
+          "description": "端口列表"
+        }
+      },
+      "required": [
+        "host"
+      ]
+    }
+  },
+  "ctf_dns_info": {
+    "skill_id": "ctf_dns_info",
+    "name": "CTF DNS Info",
+    "description": "DNS信息收集，获取A/MX/NS/TXT等记录",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/dns_info",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "domain": {
+          "type": "string",
+          "description": "目标域名"
+        }
+      },
+      "required": [
+        "domain"
+      ]
+    }
+  },
+  "ctf_crypto_analysis": {
+    "skill_id": "ctf_crypto_analysis",
+    "name": "CTF Crypto Analysis",
+    "description": "密码学分析工具，支持Base64/URL/Hex解码、凯撒密码、Vigenere密码、XOR、摩尔斯电码等",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/crypto_analysis",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "待处理文本"
+        },
+        "operation": {
+          "type": "string",
+          "description": "操作类型: analyze/caesar_cipher/vigenere_cipher/xor_cipher/morse_code/base64_encode/url_encode/hex_encode"
+        }
+      },
+      "required": [
+        "text"
+      ]
+    }
+  },
+  "ctf_hash_crack": {
+    "skill_id": "ctf_hash_crack",
+    "name": "CTF Hash Crack",
+    "description": "Hash破解工具，支持MD5/SHA1/SHA256/SHA512字典破解",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/hash_crack",
+    "danger_level": "medium",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "hash": {
+          "type": "string",
+          "description": "待破解的哈希值"
+        },
+        "type": {
+          "type": "string",
+          "description": "哈希类型: md5/sha1/sha256/sha512"
+        }
+      },
+      "required": [
+        "hash"
+      ]
+    }
+  },
+  "ctf_binary_analysis": {
+    "skill_id": "ctf_binary_analysis",
+    "name": "CTF Binary Analysis",
+    "description": "二进制文件分析，识别文件类型、提取字符串、检测压缩等",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/binary_analysis",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "string",
+          "description": "二进制文件内容(hex或base64)"
+        },
+        "type": {
+          "type": "string",
+          "description": "文件类型"
+        }
+      },
+      "required": [
+        "content"
+      ]
+    }
+  },
+  "ctf_stego_analysis": {
+    "skill_id": "ctf_stego_analysis",
+    "name": "CTF Steganography Analysis",
+    "description": "隐写术分析工具，支持LSB提取、文件签名检测、XOR分析",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/stego_analysis",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "string",
+          "description": "文件内容(hex或base64)"
+        },
+        "operation": {
+          "type": "string",
+          "description": "操作类型: lsb_extract/file_signature/xor_search"
+        }
+      },
+      "required": [
+        "content"
+      ]
+    }
+  },
+  "ctf_jwt_analysis": {
+    "skill_id": "ctf_jwt_analysis",
+    "name": "CTF JWT Analysis",
+    "description": "JWT令牌分析，检测算法安全性、过期时间、敏感声明等",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/jwt_analysis",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string",
+          "description": "JWT令牌"
+        }
+      },
+      "required": [
+        "token"
+      ]
+    }
+  },
+  "ctf_reverse_shell": {
+    "skill_id": "ctf_reverse_shell",
+    "name": "CTF Reverse Shell Generator",
+    "description": "反弹Shell生成器，支持bash/python/php/perl/ruby/nodejs/powershell等多种语言",
+    "provider_type": "mcp_http",
+    "endpoint": "http://127.0.0.1:2267/ctf/reverse_shell",
+    "danger_level": "critical",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ip": {
+          "type": "string",
+          "description": "监听IP地址"
+        },
+        "port": {
+          "type": "integer",
+          "description": "监听端口"
+        }
+      },
+      "required": [
+        "ip"
+      ]
+    }
+  },
+  "agent_context": {
+    "skill_id": "agent_context",
+    "name": "Agent Context",
+    "description": "获取智能体上下文信息",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/agent_context",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "code_scan": {
+    "skill_id": "code_scan",
+    "name": "Code Scan",
+    "description": "静态代码安全扫描",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/code_scan",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "代码内容"
+        }
+      },
+      "required": [
+        "code"
+      ]
+    }
+  },
+  "vkb_retrieve": {
+    "skill_id": "vkb_retrieve",
+    "name": "Vulnerability KB Retrieve",
+    "description": "漏洞知识库检索",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/vkb_retrieve",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "top_k": {
+          "type": "integer",
+          "default": 5
+        }
+      },
+      "required": [
+        "query"
+      ]
+    }
+  },
+  "firewall_block": {
+    "skill_id": "firewall_block",
+    "name": "Firewall Block",
+    "description": "防火墙规则阻断",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/firewall_block",
+    "danger_level": "high",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ip": {
+          "type": "string"
+        },
+        "hostname": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ip"
+      ]
+    }
+  },
+  "edr_isolation": {
+    "skill_id": "edr_isolation",
+    "name": "EDR Isolation",
+    "description": "EDR终端隔离",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/edr_isolation",
+    "danger_level": "medium",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "hostname": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "hostname"
+      ]
+    }
+  },
+  "repair_prompt_bundle": {
+    "skill_id": "repair_prompt_bundle",
+    "name": "Repair Prompt Bundle",
+    "description": "修复提示词生成",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/repair_prompt_bundle",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "cwe": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "uafr_report": {
+    "skill_id": "uafr_report",
+    "name": "UAFR Report",
+    "description": "漏洞分析报告生成",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/uafr_report",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "findings": {
+          "type": "array"
+        }
+      }
+    }
+  },
+  "cwe_classifier": {
+    "skill_id": "cwe_classifier",
+    "name": "CWE Classifier",
+    "description": "CWE漏洞分类",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/cwe_classifier",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "findings": {
+          "type": "array"
+        }
+      }
+    }
+  },
+  "sbfl_rank": {
+    "skill_id": "sbfl_rank",
+    "name": "SBFL Rank",
+    "description": "基于频谱的故障定位",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/sbfl_rank",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "top_k": {
+          "type": "integer",
+          "default": 3
+        }
+      }
+    }
+  },
+  "pcap_analyze": {
+    "skill_id": "pcap_analyze",
+    "name": "PCAP Analyze",
+    "description": "网络流量分析",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/pcap_analyze",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "pcap_file": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "start_scan": {
+    "skill_id": "start_scan",
+    "name": "Sympas 规则扫描 + 符号捕获",
+    "description": "对目标目录执行 Sympas 全量规则扫描与编译捕获，返回结构化扫描报告。适合项目初始化阶段的一键全扫，是漏洞挖掘工作流的入口技能。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/start_scan",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "target_dir": {
+          "type": "string",
+          "description": "目标目录或文件的服务端绝对路径"
+        },
+        "rules": {
+          "type": "string",
+          "description": "规则集名称 (可选，默认鸿蒙规则集)"
+        },
+        "rules_yaml": {
+          "type": "string",
+          "description": "内联 YAML 格式的自定义规则 (可选)"
+        }
+      },
+      "required": [
+        "target_dir"
+      ]
+    }
+  },
+  "sympas_slice": {
+    "skill_id": "sympas_slice",
+    "name": "Sympas 符号切片分析",
+    "description": "基于符号切片分析后端对 C/C++ 文件执行后向切片，输出变量的数据依赖与控制依赖切片路径。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/sympas_slice",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "criteria": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "Bwd",
+            "Fwd",
+            "Both"
+          ],
+          "default": "Bwd"
+        },
+        "results_dir": {
+          "type": "string"
+        }
+      },
+      "required": []
+    }
+  },
+  "sympas-hv": {
+    "skill_id": "sympas-hv",
+    "name": "Sympas 堆内存形式化验证",
+    "description": "运行基于形式化约束的深度堆内存分析，检测 UAF、空指针、缓冲区溢出等内存安全缺陷。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/sympas-hv",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "target_dir": {
+          "type": "string"
+        },
+        "results_dir": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "generate_mr": {
+    "skill_id": "generate_mr",
+    "name": "Sympas 蜕变关系生成与执行",
+    "description": "根据程序语义自动生成蜕变关系 (MR) 测试用例并执行验证，是 CEGIS 循环与 SBFL 的核心输入。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/generate_mr",
+    "danger_level": "medium",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "mr_config": {
+          "type": "string"
+        },
+        "mr_config_json": {
+          "type": "object"
+        },
+        "analysis_mode": {
+          "type": "string",
+          "default": "dynamic"
+        },
+        "gen_trace": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "file"
+      ]
+    }
+  },
+  "eval_patch_taint": {
+    "skill_id": "eval_patch_taint",
+    "name": "Sympas 补丁污点安全评估",
+    "description": "对原始代码与修复补丁进行双路内存安全分析与符号切片对比，评估补丁是否引入新的污点传播路径或内存缺陷。是 CEGIS Verifier 的核心工具。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/eval_patch_taint",
+    "danger_level": "medium",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "original_file": {
+          "type": "string"
+        },
+        "patched_file": {
+          "type": "string"
+        },
+        "original_code": {
+          "type": "string"
+        },
+        "patched_code": {
+          "type": "string"
+        },
+        "criteria": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string",
+          "default": "Both"
+        }
+      }
+    }
+  },
+  "reproduce_fault": {
+    "skill_id": "reproduce_fault",
+    "name": "Sympas 故障复现用例生成",
+    "description": "自动生成能触发已知缺陷的测试用例，返回可执行的 PoC 输入序列，为漏洞验证提供直接证据。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/reproduce_fault",
+    "danger_level": "medium",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "criteria": {
+          "type": "string"
+        },
+        "gen_trace": {
+          "type": "boolean",
+          "default": true
+        },
+        "trace_file": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "file"
+      ]
+    }
+  },
+  "concurrency_check": {
+    "skill_id": "concurrency_check",
+    "name": "Sympas 并发缺陷检测",
+    "description": "使用 RacerD 静态分析引擎检测数据竞争、死锁等并发安全缺陷 (CWE-362)，支持 C/C++/Java。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/concurrency_check",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "results_dir": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "file"
+      ]
+    }
+  },
+  "agentic_repair": {
+    "skill_id": "agentic_repair",
+    "name": "Sympas CEGIS 智能自动修复",
+    "description": "运行完整的 CEGIS 风格的 LLM 自主修复循环，自动调用 LLM 生成补丁、运行测试验证、分析反例并迭代优化，直到修复通过或达到最大迭代次数。danger_level=high，须 HITL 审批。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/agentic_repair",
+    "danger_level": "high",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer"
+        },
+        "criteria": {
+          "type": "string"
+        },
+        "max_iter": {
+          "type": "integer",
+          "default": 3
+        },
+        "cwe_class": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "file"
+      ]
+    }
+  },
+  "plan_case_reproduce": {
+    "skill_id": "plan_case_reproduce",
+    "name": "Sympas 单案例复现全流程报告",
+    "description": "运行单个修复案例的完整 11 阶段结构化复现流程报告，是单案例端到端验证的最佳入口。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/plan_case_reproduce",
+    "danger_level": "high",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "case_id": {
+          "type": "string"
+        },
+        "cwe_class": {
+          "type": "string"
+        },
+        "function": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer"
+        },
+        "diff_text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "file"
+      ]
+    }
+  },
+  "plan_quality_gate": {
+    "skill_id": "plan_quality_gate",
+    "name": "Sympas 质量门禁验证",
+    "description": "运行质量验证套件 (流程回归测试/快速E2E/MCP集成测试)，在 CI/CD 管道和 HW-CodeArts 发布流程中作为最终通行门禁。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/plan_quality_gate",
+    "danger_level": "medium",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "suite": {
+          "type": "string",
+          "enum": [
+            "plan_doc_regression",
+            "doc_quick_e2e",
+            "mcp_integration"
+          ],
+          "default": "doc_quick_e2e"
+        },
+        "output_dir": {
+          "type": "string"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "default": 300
+        }
+      }
+    }
+  },
+  "sympas_slice_table": {
+    "skill_id": "sympas_slice_table",
+    "name": "Sympas 切片表导出",
+    "description": "导出程序末尾所有单变量的完整切片表，支持 json/markdown/csv 格式，并返回产物下载链接。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/sympas_slice_table",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "criteria": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "Bwd",
+            "Fwd",
+            "Both"
+          ],
+          "default": "Bwd"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "SymPas",
+            "SymSBFL"
+          ],
+          "default": "SymPas"
+        },
+        "table_formats": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "json",
+            "markdown"
+          ]
+        }
+      },
+      "required": []
+    }
+  },
+  "dep_cluster": {
+    "skill_id": "dep_cluster",
+    "name": "Sympas 依赖簇分析 (FCA-DDC)",
+    "description": "基于形式概念分析执行依赖密度簇检测，识别高耦合依赖簇结构，是架构质量分析与重构决策的辅助工具。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/dep_cluster",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string",
+          "default": "Bwd"
+        },
+        "criteria": {
+          "type": "string"
+        },
+        "cluster_output": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "file"
+      ]
+    }
+  },
+  "sympas_dep_graph": {
+    "skill_id": "sympas_dep_graph",
+    "name": "Sympas 依赖图生成",
+    "description": "使用依赖图分析后端为源文件生成多类型程序依赖图 (CFG/CG/CDG/DDG/PDG/SDG/DFG/ICFG)，输出 dot 文本及可选 SVG 图像下载链接。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/sympas_dep_graph",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "graph_types": {
+          "type": "string",
+          "default": "All"
+        },
+        "formats": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "dot",
+            "svg"
+          ]
+        }
+      },
+      "required": [
+        "file"
+      ]
+    }
+  },
+  "sympas_dynamic_slice": {
+    "skill_id": "sympas_dynamic_slice",
+    "name": "Sympas 动态符号切片",
+    "description": "结合动态运行轨迹对代码执行动态符号切片，追踪实际执行路径上的污点传播，比纯静态切片更精确。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/sympas_dynamic_slice",
+    "danger_level": "medium",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "criteria": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "Bwd",
+            "Fwd",
+            "Both"
+          ],
+          "default": "Bwd"
+        },
+        "gen_trace": {
+          "type": "boolean",
+          "default": true
+        },
+        "trace_dir": {
+          "type": "string"
+        },
+        "trace_file": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "file"
+      ]
+    }
+  },
+  "four_layer_demo": {
+    "skill_id": "four_layer_demo",
+    "name": "Sympas 四阶段多案例基准演示",
+    "description": "对用户上传的源码压缩包或本地项目执行完整四阶段分析演示（扫描→依赖图→切片表→动态追踪），自动推断入口函数，是系统端到端能力的展示入口。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/four_layer_demo",
+    "danger_level": "medium",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "archive_base64": {
+          "type": "string"
+        },
+        "archive_name": {
+          "type": "string"
+        },
+        "project_root": {
+          "type": "string"
+        },
+        "selected_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enabled_stages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "scan",
+            "dep_graph",
+            "slice",
+            "dynamic"
+          ]
+        },
+        "parallelism": {
+          "type": "integer",
+          "default": 4
+        },
+        "list_only": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  },
+  "ast_symbol_extractor": {
+    "skill_id": "ast_symbol_extractor",
+    "name": "Sympas 轻量 AST 符号提取",
+    "description": "提取源文件的轻量 AST 符号、局部依赖关系与调用上下文，供切片分析和影响面评估复用。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/ast_symbol_extractor",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源码"
+        },
+        "lang": {
+          "type": "string",
+          "description": "代码语言"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码虚拟文件名"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "patch_safety_verifier": {
+    "skill_id": "patch_safety_verifier",
+    "name": "Sympas 补丁安全验证编排",
+    "description": "组合补丁污点安全检查与差异切片一致性验证，评估修复是否消除风险且未引入新的依赖路径。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/patch_safety_verifier",
+    "danger_level": "medium",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "original_file": {
+          "type": "string"
+        },
+        "patched_file": {
+          "type": "string"
+        },
+        "original_code": {
+          "type": "string"
+        },
+        "patched_code": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "description": "缺陷/补丁行号"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "Bwd",
+            "Fwd",
+            "Both"
+          ]
+        },
+        "lang": {
+          "type": "string"
+        },
+        "results_dir": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "line"
+      ],
+      "additionalProperties": true
+    }
+  },
+  "sca_cve_scanner": {
+    "skill_id": "sca_cve_scanner",
+    "name": "Sympas 本地依赖漏洞扫描",
+    "description": "扫描项目依赖清单并匹配已知漏洞编号与受影响版本，输出本地依赖风险报告。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/sca_cve_scanner",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "project_root": {
+          "type": "string"
+        },
+        "target_dir": {
+          "type": "string"
+        },
+        "manifest_content": {
+          "type": "string"
+        },
+        "manifest_type": {
+          "type": "string",
+          "enum": [
+            "oh-package.json5",
+            "requirements.txt",
+            "pom.xml",
+            "Cargo.lock",
+            "package.json",
+            "package-lock.json"
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "skill_doc_generator": {
+    "skill_id": "skill_doc_generator",
+    "name": "Sympas 技能文档生成器",
+    "description": "根据在线 UASP 模式生成 BitFun/ECC 技能文档，支持按工具编号筛选并写入指定目录。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/skill_doc_generator",
+    "danger_level": "medium",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "target_dir": {
+          "type": "string",
+          "description": "生成 SKILL.md 的目标目录"
+        },
+        "filter_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "target_dir"
+      ],
+      "additionalProperties": true
+    }
+  },
+  "taint_path_explainer": {
+    "skill_id": "taint_path_explainer",
+    "name": "Sympas 污点路径解释器",
+    "description": "结合切片与污点证据生成从输入源到危险汇点的路径说明，辅助定位关键传播节点。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/taint_path_explainer",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "lang": {
+          "type": "string"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer"
+        },
+        "results_dir": {
+          "type": "string"
+        },
+        "explain": {
+          "type": "boolean"
+        },
+        "no_llm": {
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "reachability_query": {
+    "skill_id": "reachability_query",
+    "name": "Sympas 调用可达性查询",
+    "description": "分析调用图中的上游调用者、下游被调者和影响集合，用于评估符号或行号的可达范围。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/reachability_query",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "lang": {
+          "type": "string"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "target_dir": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "callers",
+            "callees",
+            "both"
+          ]
+        },
+        "depth": {
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "sarif_textual_export": {
+    "skill_id": "sarif_textual_export",
+    "name": "Sympas 结构化报告与中间表示导出",
+    "description": "导出结构化告警报告和文本中间表示产物，支持单独或组合生成分析结果文件。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/sarif_textual_export",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "lang": {
+          "type": "string"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "results_dir": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "Bwd",
+            "Fwd",
+            "Both"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "sarif",
+            "textual",
+            "both"
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "output_dir": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "slice_diff": {
+    "skill_id": "slice_diff",
+    "name": "Sympas 差异切片对比",
+    "description": "对原始代码与补丁代码执行差异切片和源码等价性比较，定位行为变化和残留风险。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/slice_diff",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "original_file": {
+          "type": "string"
+        },
+        "patched_file": {
+          "type": "string"
+        },
+        "original_code": {
+          "type": "string"
+        },
+        "patched_code": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "Bwd",
+            "Fwd",
+            "Both"
+          ]
+        },
+        "lang": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "timeout_sec": {
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "memory_risk_audit": {
+    "skill_id": "memory_risk_audit",
+    "name": "内存风险审计",
+    "description": "对源文件或共享工作区执行内存安全风险审计，输出带位置和严重度的问题证据。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/memory_risk_audit",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待分析源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "results_dir": {
+          "type": "string",
+          "description": "可复用的分析结果目录"
+        },
+        "model": {
+          "type": "string",
+          "description": "源汇关系模型配置路径"
+        },
+        "original_results_dir": {
+          "type": "string",
+          "description": "基线分析结果目录"
+        },
+        "patched_results_dir": {
+          "type": "string",
+          "description": "当前或变更后分析结果目录"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "thread_safety_audit": {
+    "skill_id": "thread_safety_audit",
+    "name": "线程安全审计",
+    "description": "分析并发访问、竞争条件与锁相关风险，为研发和安全研判提供线程安全证据。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/thread_safety_audit",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待分析源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "results_dir": {
+          "type": "string",
+          "description": "可复用的分析结果目录"
+        },
+        "model": {
+          "type": "string",
+          "description": "源汇关系模型配置路径"
+        },
+        "original_results_dir": {
+          "type": "string",
+          "description": "基线分析结果目录"
+        },
+        "patched_results_dir": {
+          "type": "string",
+          "description": "当前或变更后分析结果目录"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "dead_store_audit": {
+    "skill_id": "dead_store_audit",
+    "name": "无效写入审计",
+    "description": "识别不会影响后续行为的无效写入与活性问题，输出可定位的质量风险记录。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/dead_store_audit",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待分析源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "results_dir": {
+          "type": "string",
+          "description": "可复用的分析结果目录"
+        },
+        "model": {
+          "type": "string",
+          "description": "源汇关系模型配置路径"
+        },
+        "original_results_dir": {
+          "type": "string",
+          "description": "基线分析结果目录"
+        },
+        "patched_results_dir": {
+          "type": "string",
+          "description": "当前或变更后分析结果目录"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "boundary_safety_audit": {
+    "skill_id": "boundary_safety_audit",
+    "name": "边界安全审计",
+    "description": "检查缓冲区、索引和数值边界风险，输出越界位置、严重度与关联产物。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/boundary_safety_audit",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待分析源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "results_dir": {
+          "type": "string",
+          "description": "可复用的分析结果目录"
+        },
+        "model": {
+          "type": "string",
+          "description": "源汇关系模型配置路径"
+        },
+        "original_results_dir": {
+          "type": "string",
+          "description": "基线分析结果目录"
+        },
+        "patched_results_dir": {
+          "type": "string",
+          "description": "当前或变更后分析结果目录"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "source_flow_audit": {
+    "skill_id": "source_flow_audit",
+    "name": "源汇流审计",
+    "description": "依据源汇关系模型分析数据传播路径，形成可供安全研判引用的流证据。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/source_flow_audit",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待分析源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "results_dir": {
+          "type": "string",
+          "description": "可复用的分析结果目录"
+        },
+        "model": {
+          "type": "string",
+          "description": "源汇关系模型配置路径"
+        },
+        "original_results_dir": {
+          "type": "string",
+          "description": "基线分析结果目录"
+        },
+        "patched_results_dir": {
+          "type": "string",
+          "description": "当前或变更后分析结果目录"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "resource_cost_audit": {
+    "skill_id": "resource_cost_audit",
+    "name": "资源成本审计",
+    "description": "分析关键路径的资源成本和复杂度热点，输出可量化的性能与资源指标。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/resource_cost_audit",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待分析源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "results_dir": {
+          "type": "string",
+          "description": "可复用的分析结果目录"
+        },
+        "model": {
+          "type": "string",
+          "description": "源汇关系模型配置路径"
+        },
+        "original_results_dir": {
+          "type": "string",
+          "description": "基线分析结果目录"
+        },
+        "patched_results_dir": {
+          "type": "string",
+          "description": "当前或变更后分析结果目录"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "new_risk_delta": {
+    "skill_id": "new_risk_delta",
+    "name": "新增风险差分",
+    "description": "比较基线与当前分析结果，区分新增、修复和保持的问题，防止回归风险被遗漏。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/new_risk_delta",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待分析源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "results_dir": {
+          "type": "string",
+          "description": "可复用的分析结果目录"
+        },
+        "model": {
+          "type": "string",
+          "description": "源汇关系模型配置路径"
+        },
+        "original_results_dir": {
+          "type": "string",
+          "description": "基线分析结果目录"
+        },
+        "patched_results_dir": {
+          "type": "string",
+          "description": "当前或变更后分析结果目录"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        },
+        "current_file": {
+          "type": "string",
+          "description": "当前结果文件路径"
+        },
+        "previous_file": {
+          "type": "string",
+          "description": "基线结果文件路径"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "capture_workspace": {
+    "skill_id": "capture_workspace",
+    "name": "工作区捕获",
+    "description": "为目标源码建立可复用的共享分析工作区，返回结果目录、能力状态和产物清单。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/capture_workspace",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待分析源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "results_dir": {
+          "type": "string",
+          "description": "可复用的分析结果目录"
+        },
+        "model": {
+          "type": "string",
+          "description": "源汇关系模型配置路径"
+        },
+        "original_results_dir": {
+          "type": "string",
+          "description": "基线分析结果目录"
+        },
+        "patched_results_dir": {
+          "type": "string",
+          "description": "当前或变更后分析结果目录"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "finding_report": {
+    "skill_id": "finding_report",
+    "name": "问题报告聚合",
+    "description": "从共享结果目录读取并聚合结构化问题，保留来源、位置、严重度和产物引用。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/finding_report",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待分析源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "results_dir": {
+          "type": "string",
+          "description": "可复用的分析结果目录"
+        },
+        "model": {
+          "type": "string",
+          "description": "源汇关系模型配置路径"
+        },
+        "original_results_dir": {
+          "type": "string",
+          "description": "基线分析结果目录"
+        },
+        "patched_results_dir": {
+          "type": "string",
+          "description": "当前或变更后分析结果目录"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "annotation_impact_map": {
+    "skill_id": "annotation_impact_map",
+    "name": "注解影响图",
+    "description": "分析注解对可达性和问题传播的影响，输出注解与风险之间的可解释映射。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/annotation_impact_map",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待分析源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "results_dir": {
+          "type": "string",
+          "description": "可复用的分析结果目录"
+        },
+        "model": {
+          "type": "string",
+          "description": "源汇关系模型配置路径"
+        },
+        "original_results_dir": {
+          "type": "string",
+          "description": "基线分析结果目录"
+        },
+        "patched_results_dir": {
+          "type": "string",
+          "description": "当前或变更后分析结果目录"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "semantic_change_map": {
+    "skill_id": "semantic_change_map",
+    "name": "语义变更图",
+    "description": "比较基线与当前结果，生成语义变化范围、影响节点和关联产物。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/semantic_change_map",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待分析源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "results_dir": {
+          "type": "string",
+          "description": "可复用的分析结果目录"
+        },
+        "model": {
+          "type": "string",
+          "description": "源汇关系模型配置路径"
+        },
+        "original_results_dir": {
+          "type": "string",
+          "description": "基线分析结果目录"
+        },
+        "patched_results_dir": {
+          "type": "string",
+          "description": "当前或变更后分析结果目录"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        },
+        "current_file": {
+          "type": "string",
+          "description": "当前结果文件路径"
+        },
+        "previous_file": {
+          "type": "string",
+          "description": "基线结果文件路径"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "reactive_change_audit": {
+    "skill_id": "reactive_change_audit",
+    "name": "反应式变更审计",
+    "description": "结合变更文件索引审计事件与依赖传播链，识别潜在反应式回归。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/reactive_change_audit",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待分析源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "results_dir": {
+          "type": "string",
+          "description": "可复用的分析结果目录"
+        },
+        "model": {
+          "type": "string",
+          "description": "源汇关系模型配置路径"
+        },
+        "original_results_dir": {
+          "type": "string",
+          "description": "基线分析结果目录"
+        },
+        "patched_results_dir": {
+          "type": "string",
+          "description": "当前或变更后分析结果目录"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        },
+        "changed_files_index": {
+          "type": "string",
+          "description": "变更文件索引路径"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "issue_schema_export": {
+    "skill_id": "issue_schema_export",
+    "name": "问题结构导出",
+    "description": "把结果目录中的问题导出为稳定结构，便于平台、检索和交付链路复用。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/issue_schema_export",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待分析源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "results_dir": {
+          "type": "string",
+          "description": "可复用的分析结果目录"
+        },
+        "model": {
+          "type": "string",
+          "description": "源汇关系模型配置路径"
+        },
+        "original_results_dir": {
+          "type": "string",
+          "description": "基线分析结果目录"
+        },
+        "patched_results_dir": {
+          "type": "string",
+          "description": "当前或变更后分析结果目录"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "flow_path_scan": {
+    "skill_id": "flow_path_scan",
+    "name": "流路径扫描",
+    "description": "使用已注册规则集扫描可疑数据流路径，输出可定位问题与路径证据。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/flow_path_scan",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待扫描源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "lang": {
+          "type": "string",
+          "description": "代码语言标识"
+        },
+        "rules": {
+          "type": "string",
+          "description": "已注册规则集名称"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "flow_trace_view": {
+    "skill_id": "flow_trace_view",
+    "name": "流轨迹查看",
+    "description": "将规则命中的数据流轨迹整理为可查看的节点序列，支撑误报复核和答辩展示。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/flow_trace_view",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待扫描源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "lang": {
+          "type": "string",
+          "description": "代码语言标识"
+        },
+        "rules": {
+          "type": "string",
+          "description": "已注册规则集名称"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "fix_preview": {
+    "skill_id": "fix_preview",
+    "name": "修复预览",
+    "description": "生成只读修复预览和差异文本，不直接改写源文件，供人工审核和质量门禁使用。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/fix_preview",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待扫描源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "lang": {
+          "type": "string",
+          "description": "代码语言标识"
+        },
+        "rules": {
+          "type": "string",
+          "description": "已注册规则集名称"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "standard_report_scan": {
+    "skill_id": "standard_report_scan",
+    "name": "标准报告扫描",
+    "description": "执行规则扫描并生成标准化报告结构，便于平台导入和提交材料引用。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/standard_report_scan",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待扫描源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "lang": {
+          "type": "string",
+          "description": "代码语言标识"
+        },
+        "rules": {
+          "type": "string",
+          "description": "已注册规则集名称"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "rule_quality_check": {
+    "skill_id": "rule_quality_check",
+    "name": "规则质量检查",
+    "description": "校验已注册规则集的结构与可执行性，输出规则质量门禁结果。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/rule_quality_check",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待扫描源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "lang": {
+          "type": "string",
+          "description": "代码语言标识"
+        },
+        "rules": {
+          "type": "string",
+          "description": "已注册规则集名称"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "pattern_match_scan": {
+    "skill_id": "pattern_match_scan",
+    "name": "模式匹配扫描",
+    "description": "按已注册规则集执行模式匹配扫描，输出命中问题和统计信息。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/pattern_match_scan",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待扫描源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "lang": {
+          "type": "string",
+          "description": "代码语言标识"
+        },
+        "rules": {
+          "type": "string",
+          "description": "已注册规则集名称"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "language_support_probe": {
+    "skill_id": "language_support_probe",
+    "name": "语言支持探测",
+    "description": "在扫描前探测目标语言支持状态和可用动作，为不支持场景提供真实降级依据。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/language_support_probe",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待扫描源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "lang": {
+          "type": "string",
+          "description": "代码语言标识"
+        },
+        "rules": {
+          "type": "string",
+          "description": "已注册规则集名称"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "scan_profile_report": {
+    "skill_id": "scan_profile_report",
+    "name": "扫描画像报告",
+    "description": "汇总扫描问题数、规则集、超时配置与执行画像，形成可复核的性能证据。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/scan_profile_report",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待扫描源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "lang": {
+          "type": "string",
+          "description": "代码语言标识"
+        },
+        "rules": {
+          "type": "string",
+          "description": "已注册规则集名称"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "rule_bundle_manifest": {
+    "skill_id": "rule_bundle_manifest",
+    "name": "规则包清单",
+    "description": "导出规则包哈希、版本来源、规则数量和语言覆盖，支撑规则供应链举证。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/rule_bundle_manifest",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待扫描源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "lang": {
+          "type": "string",
+          "description": "代码语言标识"
+        },
+        "rules": {
+          "type": "string",
+          "description": "已注册规则集名称"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "security_baseline_scan": {
+    "skill_id": "security_baseline_scan",
+    "name": "安全基线扫描",
+    "description": "按默认安全基线规则集执行扫描并生成结构化问题与标准报告。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/security_baseline_scan",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待扫描源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "lang": {
+          "type": "string",
+          "description": "代码语言标识"
+        },
+        "rules": {
+          "type": "string",
+          "description": "已注册规则集名称"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "security_scan": {
+    "skill_id": "security_scan",
+    "name": "综合安全扫描",
+    "description": "按多组安全规则执行综合扫描，输出结构化问题、统计与标准报告证据。",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/security_scan",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "待扫描源文件路径"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名"
+        },
+        "lang": {
+          "type": "string",
+          "description": "代码语言标识"
+        },
+        "rules": {
+          "type": "string",
+          "description": "已注册规则集名称"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "执行超时秒数"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "cloud_sse_tool_list": {
+    "skill_id": "cloud_sse_tool_list",
+    "name": "云端 MCP 工具列表",
+    "description": "获取云端 SSE MCP 服务器上所有可用工具的列表",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  "cloud_sse_query": {
+    "skill_id": "cloud_sse_query",
+    "name": "云端 MCP 通用查询",
+    "description": "调用云端 SSE MCP 服务器的指定工具，传入工具名和参数",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/tools/cloud_sse_query",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "tool_name": {
+          "type": "string",
+          "description": "要调用的云端工具名称"
+        },
+        "arguments": {
+          "type": "object",
+          "description": "工具参数"
+        }
+      },
+      "required": [
+        "tool_name"
+      ]
+    }
+  },
+  "cloud_sse_health_check": {
+    "skill_id": "cloud_sse_health_check",
+    "name": "云端 MCP 健康检查",
+    "description": "检查云端 SSE MCP 服务的连通性和状态",
+    "provider_type": "mcp_http",
+    "endpoint": "{{SYMPAS_MCP_URL}}/health",
+    "danger_level": "safe",
+    "input_schema": {
+      "type": "object",
+      "properties": {}
+    }
+  }
+}

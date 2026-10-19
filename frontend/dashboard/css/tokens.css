@@ -1,0 +1,96 @@
+/*
+ * 鉴真 UI v1
+ * Panels: 14px. Controls: 9px. Semantic status labels: pill.
+ * Accent: 鉴真 blue. Risk colors are reserved for actual security state.
+ */
+:root {
+    color-scheme: light;
+    --font-sans: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+    --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+
+    --canvas: #f3f6fb;
+    --surface: #fcfdff;
+    --surface-raised: #fdfefe;
+    --surface-subtle: #edf2f9;
+    --surface-accent: #e8f0ff;
+    --surface-danger: #fff1ef;
+    --surface-warning: #fff7e6;
+    --surface-success: #eaf7ef;
+
+    --text: #172033;
+    --text-secondary: #465570;
+    --text-muted: #62708a;
+    --text-inverse: #f8fbff;
+
+    --border: #cbd5e3;
+    --border-strong: #aebace;
+
+    --accent: #245bc7;
+    --accent-hover: #19489f;
+    --accent-strong: #123d89;
+    --on-accent: #f8fbff;
+    --focus: #0b63ce;
+
+    --danger: #b42318;
+    --danger-strong: #8f1c13;
+    --warning: #8a5a00;
+    --success: #176b3a;
+    --on-success: #f8fbff;
+    --neutral-state: #526079;
+
+    --shadow-panel: 0 8px 24px rgb(36 67 117 / 0.08), 0 2px 8px rgb(36 67 117 / 0.04);
+    --shadow-dialog: 0 24px 60px rgb(24 44 78 / 0.2), 0 8px 24px rgb(24 44 78 / 0.12);
+    --shadow-hover: 0 12px 32px rgb(36 67 117 / 0.15);
+    --shadow-sm: 0 1px 3px rgb(36 67 117 / 0.08);
+
+    --radius-panel: 20px;
+    --radius-control: 14px;
+    --radius-pill: 999px;
+    --radius-modal: 28px;
+    --radius-sm: 10px;
+
+    --topbar-height: 72px;
+    --sidebar-width: 248px;
+    --content-max: 2560px;
+
+    --duration-fast: 160ms;
+    --duration-base: 240ms;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html[data-theme="dark"] {
+    color-scheme: dark;
+    --canvas: #111720;
+    --surface: #171f2b;
+    --surface-raised: #1c2634;
+    --surface-subtle: #202c3b;
+    --surface-accent: #1c3156;
+    --surface-danger: #3a201f;
+    --surface-warning: #382e1c;
+    --surface-success: #173225;
+
+    --text: #f1f5fb;
+    --text-secondary: #c3ccda;
+    --text-muted: #9da9ba;
+    --text-inverse: #f8fbff;
+
+    --border: #364355;
+    --border-strong: #506077;
+
+    --accent: #6fa0ff;
+    --accent-hover: #8ab3ff;
+    --accent-strong: #b5ceff;
+    --on-accent: #111720;
+    --focus: #8ab3ff;
+
+    --danger: #ff8c80;
+    --danger-strong: #ffaaa1;
+    --warning: #f5c66c;
+    --success: #77d49a;
+    --on-success: #111720;
+    --neutral-state: #a7b3c4;
+
+    --shadow-panel: 0 18px 48px rgb(4 10 18 / 0.24);
+    --shadow-dialog: 0 30px 80px rgb(4 10 18 / 0.56);
+}
+
