@@ -46,13 +46,10 @@ body::after {
     to   { transform: translate3d(-8vmax, -6vmax, 0) scale(1); }
 }
 
-/* ===== 2. 顶栏玻璃拟态 + 底部强调描边 ===== */
+/* ===== 2. 顶栏 · 仅保留强调描边（去掉玻璃模糊与投影，避免遮住内容区顶部） ===== */
 .topbar {
     border-bottom-color: color-mix(in srgb, var(--accent) 16%, var(--border));
-    background: color-mix(in srgb, var(--surface) 82%, transparent);
-    box-shadow: 0 1px 0 rgb(36 67 117 / 0.04), 0 10px 28px rgb(36 67 117 / 0.06);
-    -webkit-backdrop-filter: saturate(160%) blur(16px);
-    backdrop-filter: saturate(160%) blur(16px);
+    background: var(--surface);
 }
 
 /* ===== 3. 按钮 · 渐变 + 光晕 + 扫光 ===== */
@@ -100,6 +97,54 @@ body::after {
 .nav-link.is-active {
     background: linear-gradient(90deg, var(--surface-accent), color-mix(in srgb, var(--surface-accent) 26%, var(--surface)));
     box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* ===== 4b. 侧栏 · 创新功能项（颜色区分 + SymPas 徽标） ===== */
+.nav-link--innov {
+    --innov: #245bc7;
+    border-color: color-mix(in srgb, var(--innov) 20%, var(--border));
+    background: linear-gradient(90deg, color-mix(in srgb, var(--innov) 12%, var(--surface)), var(--surface) 82%);
+    box-shadow: inset 3px 0 0 var(--innov);
+}
+
+.nav-link--blue   { --innov: #245bc7; }
+.nav-link--violet { --innov: #6d28d9; }
+
+.nav-link--innov::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    margin-right: 9px;
+    border-radius: 50%;
+    background: var(--innov);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--innov) 16%, transparent);
+    flex: none;
+}
+
+.nav-link--innov:hover {
+    border-color: color-mix(in srgb, var(--innov) 36%, var(--border));
+    background: linear-gradient(90deg, color-mix(in srgb, var(--innov) 18%, var(--surface)), var(--surface) 82%);
+    color: var(--text);
+}
+
+.nav-link--innov.is-active {
+    border-color: color-mix(in srgb, var(--innov) 34%, var(--border));
+    background: linear-gradient(90deg, color-mix(in srgb, var(--innov) 20%, var(--surface-accent)), color-mix(in srgb, var(--surface-accent) 20%, var(--surface)));
+    box-shadow: inset 3px 0 0 var(--innov);
+    color: var(--text);
+}
+
+.nav-link .nav-link-badge {
+    margin-left: auto;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.5;
+    color: var(--innov);
+    background: color-mix(in srgb, var(--innov) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--innov) 26%, transparent);
 }
 
 /* ===== 5. 面板悬停 · 轻微上浮 + 强调光晕 ===== */
