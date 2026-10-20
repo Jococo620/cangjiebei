@@ -9,11 +9,25 @@ class ChatMessage:
     role: str
     content: str
     name: Optional[str] = None
+    # 标准 OpenAI tool 协议字段。
+    # assistant 消息带上模型返回的 tool_calls，随后的 tool 消息用 tool_call_id 与之配对。
+    # 缺这两个字段时服务端会直接拒收：
+    #   assistant 缺 tool_calls  -> 400 Messages with role 'tool' must be a response
+    #                               to a preceding message with 'tool_calls'
+    #   tool 缺 tool_call_id     -> 422 missing field `tool_call_id`
+    tool_calls: Optional[List[Dict[str, Any]]] = None
+    tool_call_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        result = {"role": self.role, "content": self.content}
+        result = {"role": self.role, "content": self.content or ""}
         if self.name:
             result["name"] = self.name
+        # 空值不输出：单轮调用不应该多出 "tool_calls": null 这类字段，
+        # 部分兼容 OpenAI 的服务端会因此报错。
+        if self.tool_calls:
+            result["tool_calls"] = self.tool_calls
+        if self.tool_call_id:
+            result["tool_call_id"] = self.tool_call_id
         return result
 
 
@@ -35,12 +49,17 @@ class ToolCall:
         )
 
     def to_dict(self) -> Dict[str, Any]:
+        # OpenAI 协议要求 arguments 是 JSON 字符串，不是对象。
+        # 实测 DeepSeek 返回的就是 '{"code": "..."}' 这种字符串。
+        args = self.function_args
+        if not isinstance(args, str):
+            args = json.dumps(args, ensure_ascii=False)
         return {
             "id": self.id,
             "type": self.type,
             "function": {
                 "name": self.function_name,
-                "arguments": self.function_args
+                "arguments": args
             }
         }
 
@@ -78,10 +97,14 @@ class LLMAdapter:
             if isinstance(m, ChatMessage):
                 normalized.append(m)
             elif isinstance(m, dict):
+                # 必须带上 tool_calls / tool_call_id，否则多轮 tool 消息会被静默丢掉，
+                # 再发给服务端就是 400/422。
                 normalized.append(ChatMessage(
                     role=m.get("role", "user"),
                     content=m.get("content", ""),
                     name=m.get("name"),
+                    tool_calls=m.get("tool_calls"),
+                    tool_call_id=m.get("tool_call_id"),
                 ))
             else:
                 normalized.append(ChatMessage(role="user", content=str(m)))
