@@ -644,6 +644,25 @@ def create_app() -> Flask:
             return "pass"
         return "reject"
 
+    def _classify_failure(message: Any) -> str:
+        """从失败消息里认出具体原因。
+
+        之前只区分了 500 和其他，导致 403（服务端拒绝）和参数错误都被归成
+        tool_error，模型看不出是"服务端挂了"还是"自己参数传错了"，只能换工具瞎试。
+        """
+        text = str(message or "").lower()
+        if "403" in text or "forbidden" in text:
+            return "forbidden"
+        if "401" in text or "unauthorized" in text:
+            return "unauthorized"
+        if "500" in text:
+            return "backend_500"
+        if "timed out" in text or "timeout" in text:
+            return "timeout"
+        if "connection" in text or "max retries" in text or "name resolution" in text:
+            return "unreachable"
+        return "tool_error"
+
     def _extract_sympas_slice(resp: Any) -> Dict[str, Any]:
         """从 sympas_slice 返回中提取变量后向切片。
 
@@ -654,7 +673,9 @@ def create_app() -> Flask:
         if _tool_state(resp) == "reject":
             return {
                 "status": "reject",
-                "reason": "tool_error",
+                "reason": _classify_failure(
+                    resp.get("message") if isinstance(resp, dict) else None
+                ),
                 "message": resp.get("message") if isinstance(resp, dict) else None,
                 "vars": [],
             }
@@ -705,7 +726,7 @@ def create_app() -> Flask:
         """
         if _tool_state(resp) == "reject":
             message = resp.get("message") if isinstance(resp, dict) else None
-            reason = "backend_500" if "500" in str(message) else "tool_error"
+            reason = _classify_failure(message)
             return {
                 "status": "reject", "reason": reason, "message": message,
                 "graphs": [], "svg_url": None,
@@ -763,11 +784,15 @@ def create_app() -> Flask:
                 "graphs": [], "svg_url": fallback_svg or None,
             }
 
-        # 默认选 Cfg，没有就取第一张
+        # 默认选 Sdg（系统依赖图）：仓颉代码用它最能说明跨函数的数据与调用关系，
+        # Cfg 只看单个函数的控制流。没有 Sdg 时退 Cfg，再没有取第一张。
         default_svg = None
-        for graph in graphs:
-            if graph.get("graph_type") == "Cfg":
-                default_svg = graph.get("svg_url")
+        for want in ("Sdg", "Cfg"):
+            for graph in graphs:
+                if graph.get("graph_type") == want:
+                    default_svg = graph.get("svg_url")
+                    break
+            if default_svg:
                 break
         if not default_svg:
             default_svg = graphs[0].get("svg_url")
@@ -887,12 +912,20 @@ def create_app() -> Flask:
         # ---- 阶段 2：程序切片 ----
         # 不设 findings 前置门：仓颉在 code_scan 下规则命中恒为 0，若以此为前提
         # 切片永远不会执行。切片本身只依赖源码，与是否命中规则无关。
+        #
+        # 用 sympas_slice_table 而不是 sympas_slice：后者一进入 interprocedural
+        # 模式（有跨函数调用或 Array 参数）就只把切片表写进 raw_output 文本和
+        # artifact，data.backward_slices 留空，我们读到的永远是 empty。
+        # 实测同一个 test.cj：sympas_slice 出 0 条，sympas_slice_table 出 10 条。
+        # direction 只传 Bwd —— slice_table 的 Both 会把两个方向混进
+        # backward_slices 且丢掉 forward_slices。
         def _run_slice_stage(use_lang: str, use_filename: str) -> Dict[str, Any]:
             try:
-                resp = reg.execute_skill("sympas_slice", {
+                resp = reg.execute_skill("sympas_slice_table", {
                     "code": content,
                     "filename": use_filename,
                     "lang": use_lang,
+                    "direction": "Bwd",
                 })
             except Exception as exc:
                 logger.warning("[threat/analyze] slice failed: %s", exc)
@@ -2825,10 +2858,13 @@ def create_app() -> Flask:
         if tool_name == "sympas_dep_graph":
             graph = _extract_sympas_graph(result)
             if graph["status"] != "pass":
+                # 必须带上 message：只给 reason 的话，模型看到 "tool_error"
+                # 根本不知道是服务端 403 还是自己参数错了，只能换工具瞎试。
                 return json.dumps(
-                    {"status": graph["status"], "reason": graph.get("reason")},
+                    {"status": graph["status"], "reason": graph.get("reason"),
+                     "message": graph.get("message")},
                     ensure_ascii=False,
-                )
+                )[:max_chars]
             payload = {
                 "status": "pass",
                 "graphs": [
@@ -2843,7 +2879,7 @@ def create_app() -> Flask:
             }
             return json.dumps(payload, ensure_ascii=False)[:max_chars]
 
-        if tool_name == "sympas_slice":
+        if tool_name in ("sympas_slice", "sympas_slice_table"):
             return json.dumps(
                 _extract_sympas_slice(result), ensure_ascii=False
             )[:max_chars]
@@ -2865,7 +2901,11 @@ def create_app() -> Flask:
                     "severity": item.get("severity"),
                 })
             return json.dumps(
-                {"status": result.get("status"), "issues": slim[:50]},
+                {"status": result.get("status"),
+                 "reason": _classify_failure(result.get("message"))
+                           if str(result.get("status", "")).lower() != "success" else None,
+                 "message": result.get("message"),
+                 "issues": slim[:50]},
                 ensure_ascii=False,
             )[:max_chars]
 
@@ -2982,9 +3022,19 @@ def create_app() -> Flask:
                         raw = {"status": "error", "message": "返回格式异常"}
                         failed = True
                 except Exception as exc:
-                    logger.warning("[Agent Chat] tool %s failed: %s", tool_name, exc)
+                    logger.warning("[Agent Chat] tool %s raised: %s", tool_name, exc)
                     raw = {"status": "error", "message": str(exc)}
                     failed = True
+
+                # 失败必须留痕：这次对话只记了"Executing tool"，
+                # 四个工具集体 403 时没有任何日志可查，只能事后猜。
+                if failed:
+                    logger.warning(
+                        "[Agent Chat] tool %s failed: reason=%s message=%s",
+                        tool_name,
+                        _classify_failure(raw.get("message") if isinstance(raw, dict) else None),
+                        str(raw.get("message") if isinstance(raw, dict) else raw)[:300],
+                    )
 
                 messages.append(ChatMessage(
                     role="tool",
@@ -3130,6 +3180,11 @@ def create_app() -> Flask:
                     "- 只传 code 不给 lang 的后果：sympas_slice 会 HTTP 500（后端按 source.c "
                     "编译仓颉失败）；sympas_slice_table 会返回空表且状态仍是 success。"
                     "看到空结果时先检查自己有没有传 lang，不要直接下结论\n"
+                    "- 需要程序切片时用 sympas_slice_table，不要用 sympas_slice："
+                    "后者只要遇到跨函数调用或 Array 参数，data.backward_slices 就恒为空，"
+                    "切片只写进 raw_output 日志；sympas_slice_table 在这些情况下都能返回"
+                    "结构化结果。direction 传 \"Bwd\"，不要传 \"Both\""
+                    "（Both 会把两个方向混进 backward_slices 并丢掉 forward_slices）\n"
                     "- 不要给 file 参数传文件名。file 是服务器工作区路径，传不存在的路径会 400；"
                     "内联代码一律用 code + filename + lang\n"
                     "- sympas_dep_graph 不接受 file 参数\n"

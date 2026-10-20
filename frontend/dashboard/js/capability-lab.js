@@ -583,6 +583,10 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
         no_slice: "后端未切出变量",
         no_graph: "后端未生成图",
         backend_500: "后端生成失败，该语法可能不被支持",
+        forbidden: "服务端拒绝（HTTP 403），稍后重试或检查服务端状态",
+        unauthorized: "鉴权失败（HTTP 401），检查 SYMPAS_MCP_TOKEN",
+        timeout: "调用超时",
+        unreachable: "连不上服务端，检查 SYMPAS_MCP_URL 与网络",
         tool_error: "工具调用失败",
     };
 
@@ -686,7 +690,9 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
             .join(" · ");
         section.append(summary);
 
-        const viewer = createGraphViewer({ graphs, activeType: "Cfg", height: "460px" });
+        // 默认看 Sdg（系统依赖图）：仓颉代码的跨函数数据流与调用关系在 Sdg 上
+        // 最直观，Cfg 只是单函数的控制流。图里没有 Sdg 时退回第一张。
+        const viewer = createGraphViewer({ graphs, activeType: "Sdg", height: "460px" });
         activeGraphViewer = viewer;
         section.append(viewer.element);
         return section;
