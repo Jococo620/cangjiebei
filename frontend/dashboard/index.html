@@ -1317,13 +1317,17 @@
                                 >
 
                                 <label for="code-content">代码内容</label>
-                                <textarea
-                                    class="code-editor"
-                                    id="code-content"
-                                    rows="14"
-                                    spellcheck="false"
-                                    placeholder="粘贴需要扫描的代码。支持语言: C/C++/Cangjie/鸿蒙仓颉/Java/Python/JavaScript/TypeScript/Go/PHP/Rust"
-                                ></textarea>
+                                <div class="code-editor-wrap">
+                                    <pre class="code-highlight" id="code-highlight" aria-hidden="true"><code></code></pre>
+                                    <textarea
+                                        class="code-editor"
+                                        id="code-content"
+                                        rows="14"
+                                        wrap="off"
+                                        spellcheck="false"
+                                        placeholder="粘贴需要扫描的代码。支持语言: C/C++/Cangjie/鸿蒙仓颉/Java/Python/JavaScript/TypeScript/Go/PHP/Rust"
+                                    ></textarea>
+                                </div>
                                 <p>单个文件建议不超过 1 MB。支持语言：C、C++、<strong>鸿蒙仓颉(Cangjie)</strong>、Java、Python、JavaScript、TypeScript、Go、PHP、Rust。扫描结果来自本地规则和分析器。</p>
                                 <fieldset class="code-options">
                                     <legend>深度分析（SymPas）</legend>

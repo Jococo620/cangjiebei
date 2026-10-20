@@ -1,5 +1,6 @@
 import { api } from "./api-client.js";
 import { createGraphViewer } from "./graph-render.js";
+import { highlightFragment, langFromFilename } from "./code-highlight.js";
 
 const TERMINAL_RUN_STATES = new Set([
     "completed",
@@ -159,6 +160,8 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
     const codeFindings = query("#code-findings");
     const codeSliceToggle = query("#code-slice");
     const codeGraphToggle = query("#code-graph");
+    const codeHighlight = query("#code-highlight");
+    const codeHighlightCode = codeHighlight ? codeHighlight.querySelector("code") : null;
     const scanCritical = query("#scan-critical");
     const scanHigh = query("#scan-high");
     const scanMedium = query("#scan-medium");
@@ -523,6 +526,40 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
         }
     });
 
+    // ---- 代码高亮 ----
+    // 叠层方案：上层 textarea 负责编辑（文字透明、只留光标），
+    // 下层 pre 负责显示彩色文字。两边共享同一套字体与内边距，靠下面两个
+    // 同步函数保证滚动位置一致，否则一滚动就错位。
+    let highlightTimer = null;
+
+    function syncHighlightScroll() {
+        if (!codeHighlight || !codeContent) return;
+        codeHighlight.scrollTop = codeContent.scrollTop;
+        codeHighlight.scrollLeft = codeContent.scrollLeft;
+    }
+
+    function renderHighlight() {
+        if (!codeHighlightCode) return;
+        const filename = codeFilename.value.trim() || "sample.cj";
+        codeHighlightCode.replaceChildren(
+            highlightFragment(codeContent.value, langFromFilename(filename)),
+        );
+        syncHighlightScroll();
+    }
+
+    function scheduleHighlight() {
+        if (highlightTimer) window.clearTimeout(highlightTimer);
+        highlightTimer = window.setTimeout(renderHighlight, 120);
+    }
+
+    if (codeContent && codeHighlightCode) {
+        codeContent.addEventListener("input", scheduleHighlight);
+        codeContent.addEventListener("scroll", syncHighlightScroll, { passive: true });
+        // 改文件名会改变推断出的语言，关键字表跟着换
+        codeFilename.addEventListener("input", scheduleHighlight);
+        renderHighlight();
+    }
+
     codeFile.addEventListener("change", async () => {
         const file = codeFile.files?.[0];
         if (!file) return;
@@ -535,6 +572,8 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
             codeContent.value = await file.text();
             codeFilename.value = file.name;
             codeFileLabel.textContent = `${file.name}，${Math.max(1, Math.round(file.size / 1024))} KB`;
+            // 程序化赋值不会触发 input 事件，得手动重绘高亮
+            renderHighlight();
             announce("本地代码文件已经读取");
         } catch {
             showToast("无法读取所选文件", "error");

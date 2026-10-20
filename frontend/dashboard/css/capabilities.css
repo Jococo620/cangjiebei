@@ -561,6 +561,81 @@
     tab-size: 4;
 }
 
+/* ---- 代码高亮叠层 ----
+   下层 pre 画彩色文字，上层 textarea 文字透明、只留光标。
+   两者必须共用同一套字体/内边距/边框，否则会错位；
+   textarea 设了 wrap="off"，pre 用 white-space: pre，避免换行算法不一致。 */
+.code-editor-wrap {
+    position: relative;
+}
+
+.code-highlight {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    /* 与 textarea 的 padding / border 完全一致，边框用透明占位 */
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
+    overflow: hidden;
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+    tab-size: 4;
+    white-space: pre;
+    pointer-events: none;
+}
+
+.code-highlight code {
+    font: inherit;
+}
+
+.code-editor-wrap .code-editor {
+    position: relative;
+    display: block;
+    margin: 0;
+    background: transparent;
+    /* 文字透明，彩色文字由下层 pre 提供；caret 仍可见 */
+    color: transparent;
+    caret-color: var(--text);
+}
+
+.code-editor-wrap .code-editor::selection {
+    background: rgb(36 91 199 / 0.25);
+}
+
+/* 文字透明后 placeholder 会跟着消失，单独给回颜色 */
+.code-editor-wrap .code-editor::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+}
+
+/* 高亮配色。亮/暗主题各一套，避免在深色底上出现深色关键字 */
+.tok-keyword { color: #a626a4; }
+.tok-string  { color: #2f7d32; }
+.tok-comment { color: #8a94a6; font-style: italic; }
+.tok-number  { color: #b76b01; }
+.tok-function { color: #1c5fb0; }
+.tok-type    { color: #0f766e; }
+
+@media (prefers-color-scheme: dark) {
+    .tok-keyword { color: #d2a8ff; }
+    .tok-string  { color: #8ddb8d; }
+    .tok-comment { color: #7f8a9c; }
+    .tok-number  { color: #f0b26b; }
+    .tok-function { color: #79b8ff; }
+    .tok-type    { color: #67e8d5; }
+}
+
+/* 站点支持手动切主题时，用 data-theme 覆盖 */
+[data-theme="dark"] .tok-keyword { color: #d2a8ff; }
+[data-theme="dark"] .tok-string  { color: #8ddb8d; }
+[data-theme="dark"] .tok-number  { color: #f0b26b; }
+[data-theme="dark"] .tok-function { color: #79b8ff; }
+[data-theme="dark"] .tok-type    { color: #67e8d5; }
+
 .scan-metrics {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
