@@ -83,8 +83,12 @@ rules:
       cwe: CWE-120
       category: memory-safety
       confidence: HIGH
-    pattern-regex: |
-      (?m)^(?![ \t]*(//|\*|/\*)).*?\b(memcpy|memmove|strcpy|strcat|sprintf|vsprintf)\s*\(.*
+      note: 排除 foreign func 声明行，声明本身不是调用
+    patterns:
+      - pattern-regex: |
+          (?m)^(?![ \t]*(//|\*|/\*)).*?\b(memcpy|memmove|strcpy|strcat|sprintf|vsprintf)\s*\(.*
+      - pattern-not-regex: |
+          (?m)^.*?\bforeign\s+func\b.*
 
   # ==================== 二、C 互操作 ====================
 
@@ -257,8 +261,9 @@ rules:
       cwe: CWE-94
       category: injection
       confidence: MEDIUM
+      note: 不含 execute，命令执行归 cangjie-command-exec，避免同一行报两条
     pattern-regex: |
-      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(eval|exec|compile|invoke|execute)\s*\(.*
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(eval|exec|compile|invoke)\s*\(.*
 
   - id: cangjie-open-redirect
     languages: [cangjie]
