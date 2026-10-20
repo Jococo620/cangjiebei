@@ -424,8 +424,13 @@
     font-family: var(--font-mono);
     font-size: 12px;
     line-height: 1.55;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
+    /* 不折行：JSON 保持原有行结构，长行横向滚动。
+       之前用 pre-wrap + overflow-wrap:anywhere，面板只有 281px 宽，
+       一行 JSON 被折成 2-3 行，526 行变 665 行、内容高 12366px，
+       滚轮进去要滚 100 多格才到底，页面像卡住。不折行后
+       行数 526→195、高度 3646px，滚动格数少了 3.4 倍。 */
+    white-space: pre;
+    tab-size: 2;
 }
 
 .analysis-layout,
