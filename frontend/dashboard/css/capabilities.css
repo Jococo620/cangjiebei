@@ -320,6 +320,119 @@
     font-size: 13px;
 }
 
+/* ---- 工具调用：折叠块 ---- */
+.tool-call {
+    border-radius: var(--radius-control);
+}
+
+.tool-call summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 2px;
+    cursor: pointer;
+    list-style: none;
+}
+
+/* 去掉默认三角，用自绘的箭头，展开状态跟着 details 走 */
+.tool-call summary::-webkit-details-marker {
+    display: none;
+}
+
+.tool-call summary::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid var(--text-muted);
+    border-bottom: 1.5px solid var(--text-muted);
+    transform: rotate(-45deg);
+    transition: transform 0.15s ease;
+}
+
+.tool-call[open] summary::before {
+    transform: rotate(45deg);
+}
+
+.tool-call summary:hover .tool-call-name {
+    color: var(--accent-strong);
+}
+
+.tool-call-order {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+}
+
+.tool-call-name {
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    font-weight: 700;
+}
+
+.tool-call-state {
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+}
+
+.tool-call-state.is-ok {
+    background: var(--surface-success);
+    color: var(--success);
+}
+
+.tool-call-state.is-bad {
+    background: var(--surface-danger);
+    color: var(--danger);
+}
+
+.tool-call-hint {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+}
+
+.tool-call-body {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+}
+
+.tool-call-section {
+    display: grid;
+    gap: 4px;
+}
+
+.tool-call-label {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+/* 完整内容不限字符数，靠高度滚动，避免 20KB 的返回把页面撑开 */
+.tool-call-code {
+    max-height: 360px;
+    margin: 0;
+    padding: 10px 12px;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface-subtle);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.55;
+    /* 不折行：JSON 保持原有行结构，长行横向滚动。
+       之前用 pre-wrap + overflow-wrap:anywhere，面板只有 281px 宽，
+       一行 JSON 被折成 2-3 行，526 行变 665 行、内容高 12366px，
+       滚轮进去要滚 100 多格才到底，页面像卡住。不折行后
+       行数 526→195、高度 3646px，滚动格数少了 3.4 倍。 */
+    white-space: pre;
+    tab-size: 2;
+}
+
 .analysis-layout,
 .code-layout,
 .ctf-layout {
@@ -543,6 +656,220 @@
 
 .slice-download:hover {
     text-decoration: underline;
+}
+
+/* ---- 代码扫描：深度分析选项 ---- */
+.code-options {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface-subtle);
+}
+
+.code-options legend {
+    padding: 0 6px;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.code-option {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+    cursor: pointer;
+}
+
+.code-option input {
+    margin-top: 2px;
+    accent-color: var(--accent-strong);
+}
+
+.code-option em {
+    display: block;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-style: normal;
+}
+
+.code-meta {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+}
+
+/* ---- 代码扫描：分析阶段 ---- */
+.stage-list {
+    display: grid;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.stage-list h4 {
+    font-size: 15px;
+}
+
+.stage-row {
+    display: grid;
+    grid-template-columns: 88px 64px minmax(0, 1fr);
+    gap: 10px;
+    align-items: baseline;
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    font-size: 12.5px;
+}
+
+.stage-name {
+    color: var(--text-secondary);
+    font-weight: 700;
+}
+
+.stage-state {
+    justify-self: start;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+}
+
+.stage-state.is-pass {
+    background: var(--surface-success);
+    color: var(--success);
+}
+
+.stage-state.is-empty {
+    background: var(--surface-warning);
+    color: var(--warning);
+}
+
+.stage-state.is-reject {
+    background: var(--surface-danger);
+    color: var(--danger);
+}
+
+.stage-state.is-skipped {
+    background: var(--surface-subtle);
+    color: var(--text-muted);
+}
+
+.stage-note {
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+}
+
+/* ---- 代码扫描：依赖图查看器 ---- */
+.graph-viewer {
+    display: grid;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.graph-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.graph-types,
+.graph-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.graph-type,
+.graph-action {
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.graph-type:hover,
+.graph-action:hover {
+    border-color: var(--border-strong);
+    color: var(--accent-strong);
+}
+
+.graph-type.is-active {
+    border-color: var(--accent-strong);
+    background: var(--surface-accent);
+    color: var(--accent-strong);
+    font-weight: 700;
+}
+
+.graph-viewport {
+    position: relative;
+    height: 420px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    /* 浅色纸面固定不随主题变深：graphviz 生成的节点文字是黑色，
+       深色底会直接看不见，这里不为了一致性牺牲可读性。 */
+    background-color: #fbfcfe;
+    background-image:
+        linear-gradient(rgba(120, 140, 170, 0.12) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(120, 140, 170, 0.12) 1px, transparent 1px);
+    background-size: 22px 22px;
+    cursor: grab;
+    touch-action: none;
+}
+
+.graph-viewport.is-panning {
+    cursor: grabbing;
+}
+
+.graph-viewport:focus-visible {
+    outline: 2px solid var(--accent-strong);
+    outline-offset: 2px;
+}
+
+.graph-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+    max-width: none;
+    max-height: none;
+    transform-origin: 0 0;
+    will-change: transform;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.graph-status {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    padding: 16px;
+    /* 这里同样不能跟主题走：底色是固定的浅色纸面 */
+    color: #4a5568;
+    font-size: 13px;
+    text-align: center;
+}
+
+.graph-status[hidden] {
+    display: none;
+}
+
+.graph-status.is-error {
+    color: #b42318;
 }
 
 .cwe-toolbar {

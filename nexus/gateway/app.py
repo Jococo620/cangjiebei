@@ -39,6 +39,11 @@ _cwe_kb: Optional[CWEKnowledgeBase] = None
 _eat_db: Optional[EATDatabase] = None
 _danger_policy: Optional[DangerLevelPolicy] = None
 
+# 依赖图返回体积上限：一张 Cfg 十几到几十节点，超过这些值只可能是异常大文件，
+# 截断后标记 truncated，避免单次响应把前端或模型上下文撑爆。
+MAX_GRAPH_NODES = 300
+MAX_GRAPH_EDGES = 800
+
 
 def make_error(message: str, status_code: int = 400, **extra) -> tuple:
     """统一的错误响应格式"""
@@ -593,37 +598,256 @@ def create_app() -> Flask:
         entry_type = detect_entry_type(source, path_hint=path_hint)
         return jsonify({"detected_entry_type": entry_type, "supported_types": list(ENTRY_TYPES)})
 
-    def _extract_sympas_slice(resp):
-        """从 sympas_slice 返回中提取数据流/污点切片结果。"""
+    _LANG_BY_SUFFIX = {
+        ".cj": "cangjie", ".cjj": "cangjie",
+        ".c": "c", ".h": "c",
+        ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp", ".hpp": "cpp",
+        ".java": "java", ".py": "python",
+        ".js": "javascript", ".ts": "typescript",
+        ".go": "go", ".rs": "rust", ".php": "php",
+    }
+
+    _EXT_BY_LANG = {
+        "cangjie": ".cj", "c": ".c", "cpp": ".cpp", "java": ".java",
+        "python": ".py", "javascript": ".js", "typescript": ".ts",
+        "go": ".go", "rust": ".rs", "php": ".php",
+    }
+
+    def _infer_lang(filename: str) -> str:
+        """按文件后缀推断语言标识。
+
+        仓颉是本项目主场景，但默认文件名常是 sample.py，因此推断结果只作初值，
+        调用侧在失败时会用 cangjie 重试一次（见 threat_analyze）。
+        """
+        _, ext = os.path.splitext(str(filename or "").strip().lower())
+        return _LANG_BY_SUFFIX.get(ext, "c")
+
+    def _retarget_filename(filename: str, lang: str) -> str:
+        """把文件名后缀换成目标语言的后缀。
+
+        后端会同时看 filename 后缀与 lang 判语言，两者冲突时会失败，
+        所以回退重试时必须一起改，只改 lang 不够。
+        """
+        stem = os.path.splitext(str(filename or "sample"))[0] or "sample"
+        return stem + _EXT_BY_LANG.get(lang, ".txt")
+
+    def _tool_state(resp: Any) -> str:
+        """把工具返回归一为 pass / empty / reject。
+
+        reg.execute_skill 在 MCP 异常时返回 {"status": "error", ...}，
+        正常时原样返回后端响应（同样带 status 字段）。
+        """
         if not isinstance(resp, dict):
-            return None
+            return "reject"
+        state = str(resp.get("status", "")).strip().lower()
+        if state == "success":
+            return "pass"
+        return "reject"
+
+    def _classify_failure(message: Any) -> str:
+        """从失败消息里认出具体原因。
+
+        之前只区分了 500 和其他，导致 403（服务端拒绝）和参数错误都被归成
+        tool_error，模型看不出是"服务端挂了"还是"自己参数传错了"，只能换工具瞎试。
+        """
+        text = str(message or "").lower()
+        if "403" in text or "forbidden" in text:
+            return "forbidden"
+        if "401" in text or "unauthorized" in text:
+            return "unauthorized"
+        if "500" in text:
+            return "backend_500"
+        if "timed out" in text or "timeout" in text:
+            return "timeout"
+        if "connection" in text or "max retries" in text or "name resolution" in text:
+            return "unreachable"
+        return "tool_error"
+
+    def _extract_sympas_slice(resp: Any) -> Dict[str, Any]:
+        """从 sympas_slice 返回中提取变量后向切片。
+
+        后端实际结构（2026-10-20 实测）：
+            data.backward_slices = {"变量@函数": {"文件名": [行号, ...]}}
+        注意这不是污点追踪，只有"变量依赖哪些行"，没有 source→sink 路径。
+        """
+        if _tool_state(resp) == "reject":
+            return {
+                "status": "reject",
+                "reason": _classify_failure(
+                    resp.get("message") if isinstance(resp, dict) else None
+                ),
+                "message": resp.get("message") if isinstance(resp, dict) else None,
+                "vars": [],
+            }
+
         data = resp.get("data") if isinstance(resp.get("data"), dict) else {}
-        taint = data.get("taint") if isinstance(data.get("taint"), dict) else {}
-        traces = [t for t in (taint.get("taint_traces") or []) if isinstance(t, dict)]
-        # SymPas 后端对 code 参数统一写入 source.c；过滤运行时目录残留的其它样例文件
-        traces = [
-            t for t in traces
-            if os.path.basename(str((t.get("sink") or {}).get("file", ""))) == "source.c"
-            or os.path.basename(str((t.get("source") or {}).get("file", ""))) == "source.c"
-        ]
-        if not traces:
-            return None
+        raw = data.get("backward_slices")
+        if not isinstance(raw, dict) or not raw:
+            return {"status": "empty", "reason": "no_slice", "vars": []}
+
+        vars_out: List[Dict[str, Any]] = []
+        for key, per_file in raw.items():
+            if not isinstance(per_file, dict):
+                continue
+            var_name, _, func_name = str(key).partition("@")
+            for file_name, lines in per_file.items():
+                if not isinstance(lines, list):
+                    continue
+                clean = sorted({int(x) for x in lines if isinstance(x, (int, float))})
+                if not clean:
+                    continue
+                vars_out.append({
+                    "var": var_name,
+                    "func": func_name or None,
+                    "file": str(file_name),
+                    "lines": clean,
+                    "span": [clean[0], clean[-1]],
+                    "line_count": len(clean),
+                })
+
+        if not vars_out:
+            return {"status": "empty", "reason": "no_slice", "vars": []}
+
+        vars_out.sort(key=lambda item: (-item["line_count"], item["var"]))
         return {
-            "engine": data.get("tool") or resp.get("tool") or "sympas",
-            "taint_traces": traces,
+            "status": "pass",
+            "reason": None,
+            "engine": data.get("tool") or resp.get("tool"),
+            "version": data.get("version"),
+            "vars": vars_out,
         }
+
+    def _extract_sympas_graph(resp: Any) -> Dict[str, Any]:
+        """从 sympas_dep_graph 返回中提取图结构，并把 SVG 相对路径补成绝对地址。
+
+        后端一次返回 21KB+ 且约 95% 是冗余（data 与 report 相同、artifacts 与 graphs
+        相同、preview.json_source 是副本），这里只保留 json_graphs 与 svg_url。
+        engine_log 含服务器绝对路径，一律丢弃。
+        """
+        if _tool_state(resp) == "reject":
+            message = resp.get("message") if isinstance(resp, dict) else None
+            reason = _classify_failure(message)
+            return {
+                "status": "reject", "reason": reason, "message": message,
+                "graphs": [], "svg_url": None,
+            }
+
+        data = resp.get("data") if isinstance(resp.get("data"), dict) else {}
+        raw_graphs = data.get("json_graphs") or []
+        preview = resp.get("preview") if isinstance(resp.get("preview"), dict) else {}
+
+        base = get_sympas_base_url().rstrip("/")
+
+        def _abs(url: str) -> str:
+            url = str(url or "")
+            if url.startswith("/"):
+                return base + url
+            return url
+
+        # preview.svg_url 只指向最后一次生成的图（实测传给 "All" 时拿到的是 Dfg），
+        # 因此必须从 artifacts[] 按 graph_type 建映射，前端才能选哪张画哪张。
+        artifact_svg: Dict[str, str] = {}
+        for art in resp.get("artifacts") or []:
+            if not isinstance(art, dict):
+                continue
+            graph_type = art.get("graph_type")
+            svg_meta = art.get("svg")
+            if graph_type and isinstance(svg_meta, dict):
+                url = _abs(svg_meta.get("url") or "")
+                if url:
+                    artifact_svg[str(graph_type)] = url
+
+        fallback_svg = _abs(preview.get("svg_url") or "")
+
+        graphs: List[Dict[str, Any]] = []
+        for item in raw_graphs:
+            if not isinstance(item, dict):
+                continue
+            nodes = item.get("nodes") or []
+            edges = item.get("edges") or []
+            graph_type = item.get("graph_type")
+            graphs.append({
+                "graph_type": graph_type,
+                "node_count": item.get("node_count"),
+                "edge_count": item.get("edge_count"),
+                "nodes": nodes[:MAX_GRAPH_NODES],
+                "edges": edges[:MAX_GRAPH_EDGES],
+                "truncated": (
+                    len(nodes) > MAX_GRAPH_NODES or len(edges) > MAX_GRAPH_EDGES
+                ),
+                "svg_url": artifact_svg.get(str(graph_type)) or fallback_svg or None,
+            })
+
+        if not graphs:
+            return {
+                "status": "empty", "reason": "no_graph",
+                "graphs": [], "svg_url": fallback_svg or None,
+            }
+
+        # 默认选 Sdg（系统依赖图）：仓颉代码用它最能说明跨函数的数据与调用关系，
+        # Cfg 只看单个函数的控制流。没有 Sdg 时退 Cfg，再没有取第一张。
+        default_svg = None
+        for want in ("Sdg", "Cfg"):
+            for graph in graphs:
+                if graph.get("graph_type") == want:
+                    default_svg = graph.get("svg_url")
+                    break
+            if default_svg:
+                break
+        if not default_svg:
+            default_svg = graphs[0].get("svg_url")
+
+        return {
+            "status": "pass",
+            "reason": None,
+            "engine": resp.get("engine"),
+            "graphs": graphs,
+            "svg_url": default_svg or fallback_svg or None,
+        }
+
+    def _graph_to_summary(graphs: List[Dict[str, Any]], max_nodes: int = 80) -> str:
+        """把图结构压成模型可读的紧凑文本。
+
+        SVG 里 8800 字符约 8500 是坐标噪音，from/to 语义只在 <title> 里；
+        同样的信息用 "n0_16->n0_4" 形式表达只需几百字符，模型能直接看出回边。
+        """
+        lines: List[str] = []
+        for graph in (graphs or [])[:3]:
+            lines.append(
+                f"{graph.get('graph_type')} "
+                f"{graph.get('node_count')}n/{graph.get('edge_count')}e"
+            )
+            for node in (graph.get("nodes") or [])[:max_nodes]:
+                lines.append(f"  {node.get('id')}: {node.get('label')}")
+            for edge in (graph.get("edges") or [])[: max_nodes * 2]:
+                lines.append(f"  {edge.get('from')}->{edge.get('to')}")
+        return "\n".join(lines)
 
     @app.route("/threat/analyze", methods=["POST"])
     def threat_analyze() -> Response:
         payload = request.json or {}
         content = payload.get("content")
-        filename = payload.get("filename", "code.py")
+        filename = payload.get("filename") or "code.py"
+        include_slice = bool(payload.get("include_slice", True))
+        include_graph = bool(payload.get("include_graph", False))
+        explicit_lang = bool(str(payload.get("lang") or "").strip())
+        lang = str(payload.get("lang") or "").strip() or _infer_lang(filename)
 
         if not content:
             return make_error("content parameter required", 400)
 
         reg = get_registry()
-        scan = reg.execute_skill("code_scan", {"code": content})
+
+        # ---- 阶段 1：规则扫描 ----
+        stages: List[Dict[str, Any]] = []
+        scan: Dict[str, Any] = {}
+        stage_start = time.time()
+        try:
+            scan = reg.execute_skill("code_scan", {"code": content})
+        except Exception as exc:
+            logger.warning("[threat/analyze] code_scan failed: %s", exc)
+            scan = {"status": "error", "message": str(exc)}
+        scan_state = _tool_state(scan)
 
         # 从 SymPas code_scan 结果中提取 findings（兼容 issues/findings/data.findings 等结构）
         findings: List[Dict[str, Any]] = []
@@ -641,6 +865,18 @@ def create_app() -> Flask:
                 files = scan.get("report", {}).get("stage1_pattern_scan", {}).get("files")
                 if isinstance(files, list):
                     findings = [it for it in files if isinstance(it, dict)]
+
+        stages.append({
+            "name": "code_scan",
+            "status": scan_state,
+            "ms": int((time.time() - stage_start) * 1000),
+            "note": (
+                f"命中 {len(findings)} 处"
+                if findings
+                else ("规则集未覆盖该语言，命中 0（不等于无风险）"
+                      if lang == "cangjie" else "命中 0 处")
+            ),
+        })
 
         _sev_score = {"critical": 9.5, "high": 8.0, "medium": 5.0, "low": 2.0}
         _danger_hints = ("dangerous-copy", "overflow", "overrun", "bounded", "strcpy",
@@ -673,14 +909,93 @@ def create_app() -> Flask:
                 "severity": score,
             })
 
-        # 程序切片：对命中的危险点做符号切片 + 污点追踪（SymPas sympas_slice）
-        slice_result = None
-        if findings:
+        # ---- 阶段 2：程序切片 ----
+        # 不设 findings 前置门：仓颉在 code_scan 下规则命中恒为 0，若以此为前提
+        # 切片永远不会执行。切片本身只依赖源码，与是否命中规则无关。
+        #
+        # 用 sympas_slice_table 而不是 sympas_slice：后者一进入 interprocedural
+        # 模式（有跨函数调用或 Array 参数）就只把切片表写进 raw_output 文本和
+        # artifact，data.backward_slices 留空，我们读到的永远是 empty。
+        # 实测同一个 test.cj：sympas_slice 出 0 条，sympas_slice_table 出 10 条。
+        # direction 只传 Bwd —— slice_table 的 Both 会把两个方向混进
+        # backward_slices 且丢掉 forward_slices。
+        def _run_slice_stage(use_lang: str, use_filename: str) -> Dict[str, Any]:
             try:
-                slice_resp = reg.execute_skill("sympas_slice", {"code": content})
-                slice_result = _extract_sympas_slice(slice_resp)
+                resp = reg.execute_skill("sympas_slice_table", {
+                    "code": content,
+                    "filename": use_filename,
+                    "lang": use_lang,
+                    "direction": "Bwd",
+                })
             except Exception as exc:
                 logger.warning("[threat/analyze] slice failed: %s", exc)
+                return {"status": "reject", "reason": "tool_error",
+                        "message": str(exc), "vars": []}
+            return _extract_sympas_slice(resp)
+
+        # 后端同时看 filename 后缀与 lang，两者冲突会失败，回退时一起换
+        effective_filename = filename
+
+        slice_result: Dict[str, Any]
+        if include_slice:
+            stage_start = time.time()
+            slice_result = _run_slice_stage(lang, effective_filename)
+            slice_note = None
+            # 前端默认文件名常是 sample.py，按后缀推断会误判成 python。
+            # 仓颉是本项目主场景，失败时用 cangjie 重试一次（仅在 lang 非显式指定时）。
+            if (slice_result["status"] != "pass"
+                    and not explicit_lang and lang != "cangjie"):
+                retry_filename = _retarget_filename(filename, "cangjie")
+                retry = _run_slice_stage("cangjie", retry_filename)
+                if retry["status"] == "pass":
+                    slice_result = retry
+                    slice_note = f"按后缀推断为 {lang} 失败，已回退 cangjie（{retry_filename}）"
+                    lang = "cangjie"
+                    effective_filename = retry_filename
+            stages.append({
+                "name": "slice",
+                "status": slice_result["status"],
+                "ms": int((time.time() - stage_start) * 1000),
+                "note": slice_note or slice_result.get("reason")
+                        or f"{len(slice_result.get('vars') or [])} 个变量",
+            })
+        else:
+            slice_result = {"status": "skipped", "reason": "not_requested", "vars": []}
+            # 关掉开关时也要留一行：阶段板是"跑了什么、没跑什么"的账本，
+            # 静默省略会让人以为这一步不存在。
+            stages.append({"name": "slice", "status": "skipped",
+                           "ms": 0, "note": "未请求"})
+
+        # ---- 阶段 3：依赖图 ----
+        graph_result: Dict[str, Any]
+        if include_graph:
+            stage_start = time.time()
+            try:
+                graph_resp = reg.execute_skill("sympas_dep_graph", {
+                    "code": content,
+                    "filename": effective_filename,
+                    "lang": lang,
+                    # schema 声明为 string，传数组会被本地 jsonschema 拦。
+                    # "All" 一次拿全部 7 种（Cfg/Cg/Cdg/Ddg/Pdg/Sdg/Dfg）。
+                    "graph_types": "All",
+                })
+                graph_result = _extract_sympas_graph(graph_resp)
+            except Exception as exc:
+                logger.warning("[threat/analyze] dep_graph failed: %s", exc)
+                graph_result = {"status": "reject", "reason": "tool_error",
+                                "message": str(exc), "graphs": [], "svg_url": None}
+            stages.append({
+                "name": "graph",
+                "status": graph_result["status"],
+                "ms": int((time.time() - stage_start) * 1000),
+                "note": graph_result.get("reason")
+                        or f"{len(graph_result.get('graphs') or [])} 张图",
+            })
+        else:
+            graph_result = {"status": "skipped", "reason": "not_requested",
+                            "graphs": [], "svg_url": None}
+            stages.append({"name": "graph", "status": "skipped",
+                           "ms": 0, "note": "未请求"})
 
         top = max(scores) if scores else 0.0
         if top >= 9.0:
@@ -692,10 +1007,36 @@ def create_app() -> Flask:
         else:
             label = "low"
 
+        # 建议文案要区分"没命中"和"没分析"：仓颉走规则扫描恒 0 命中，
+        # 直接说"命中 0 处"会被读成"没有漏洞"，这是最危险的误判。
+        if findings:
+            recommendation = (
+                f"SymPas 静态扫描命中 {len(findings)} 处，综合风险 {label.upper()}。"
+                f"请结合切片与证据复核。"
+            )
+        elif scan_state == "reject":
+            recommendation = (
+                "规则扫描未完成（后端不可达或鉴权失败），本次结论不可作为安全判断依据。"
+                "请检查 SYMPAS_MCP_URL / SYMPAS_MCP_TOKEN 后重试。"
+            )
+        elif lang == "cangjie":
+            recommendation = (
+                "规则引擎未覆盖仓颉，命中数为 0 不代表无风险。"
+                "请以变量切片与控制流图为复核依据。"
+            )
+        else:
+            recommendation = (
+                f"规则扫描已完成，未命中规则，综合风险 {label.upper()}。仍建议结合人工复核。"
+            )
+
         return jsonify({
             "file": filename,
+            "effective_file": effective_filename,
+            "lang": lang,
             "engine": scan.get("source") if isinstance(scan, dict) else "sympas",
             "slice": slice_result,
+            "graph": graph_result,
+            "stages": stages,
             "taint": None,
             "cwe": None,
             "sbfl": {
@@ -704,7 +1045,7 @@ def create_app() -> Flask:
                 "average_score": round(sum(scores) / len(scores), 2) if scores else 0.0,
             },
             "composite_risk": {"overall": round(top, 1), "label": label},
-            "recommendation": f"SymPas 静态扫描命中 {len(findings)} 处，综合风险 {label.upper()}。请结合证据复核。",
+            "recommendation": recommendation,
         })
 
     @app.route("/threat/risk", methods=["POST"])
@@ -2481,14 +2822,257 @@ def create_app() -> Flask:
         else:
             return "unknown"
 
+    # 工具调用最大轮次。按"LLM 调用次数"计：一轮内模型可能返回多个 tool_calls，
+    # 全部执行完再进下一轮。用尽后不再执行，交给调用方基于已有结果收口。
+    MAX_TOOL_ROUNDS = 2
+
+    def _parse_text_tool_call(content: str) -> Optional[Dict[str, Any]]:
+        """兜底：模型没走 function calling，而是把调用写成了代码形式。
+
+        只对不支持 tools 参数的模型生效，正常路径不会走到这里。
+        """
+        if not content:
+            return None
+        import re
+        text = content.strip()
+        match = re.search(r'^(\w+)\s*\(\s*code\s*=\s*["\'](.+)["\']\s*\)$', text, re.DOTALL)
+        if match:
+            return {"function_name": match.group(1),
+                    "function_args": {"code": match.group(2).replace('\\"', '"')}}
+        match = re.search(r'(\w+)\s*\(\s*code\s*=\s*(.+?)\s*\)', text)
+        if match:
+            return {"function_name": match.group(1),
+                    "function_args": {"code": match.group(2).strip('"\'').replace('\\"', '"')}}
+        return None
+
+    def _compress_tool_result(tool_name: str, result: Any, max_chars: int = 6000) -> str:
+        """把工具结果压成模型可读的紧凑文本。
+
+        MCP 原始返回动辄 20KB，其中约 95% 是重复字段（data 与 report 相同、
+        artifacts 与 graphs 相同、preview.json_source 是副本），engine_log 还含
+        服务器绝对路径。直接塞进上下文会让模型淹没在噪音里，也白白消耗 token。
+        """
+        if not isinstance(result, dict):
+            return str(result)[:max_chars]
+
+        if tool_name == "sympas_dep_graph":
+            graph = _extract_sympas_graph(result)
+            if graph["status"] != "pass":
+                # 必须带上 message：只给 reason 的话，模型看到 "tool_error"
+                # 根本不知道是服务端 403 还是自己参数错了，只能换工具瞎试。
+                return json.dumps(
+                    {"status": graph["status"], "reason": graph.get("reason"),
+                     "message": graph.get("message")},
+                    ensure_ascii=False,
+                )[:max_chars]
+            payload = {
+                "status": "pass",
+                "graphs": [
+                    {"graph_type": item.get("graph_type"),
+                     "node_count": item.get("node_count"),
+                     "edge_count": item.get("edge_count")}
+                    for item in graph["graphs"]
+                ],
+                # structure 里是 "n0_16->n0_4" 这样的边，模型能直接看出回边与循环；
+                # SVG 全是坐标，不要给模型。
+                "structure": _graph_to_summary(graph["graphs"]),
+            }
+            return json.dumps(payload, ensure_ascii=False)[:max_chars]
+
+        if tool_name in ("sympas_slice", "sympas_slice_table"):
+            return json.dumps(
+                _extract_sympas_slice(result), ensure_ascii=False
+            )[:max_chars]
+
+        if tool_name == "code_scan":
+            issues = result.get("issues")
+            if not isinstance(issues, list):
+                issues = result.get("findings") if isinstance(result.get("findings"), list) else []
+            slim = []
+            for item in issues:
+                if not isinstance(item, dict):
+                    continue
+                extra = item.get("extra") if isinstance(item.get("extra"), dict) else {}
+                start = item.get("start") if isinstance(item.get("start"), dict) else {}
+                slim.append({
+                    "check_id": item.get("check_id") or item.get("rule_id"),
+                    "message": extra.get("message") or item.get("description"),
+                    "line": item.get("line", start.get("line")),
+                    "severity": item.get("severity"),
+                })
+            return json.dumps(
+                {"status": result.get("status"),
+                 "reason": _classify_failure(result.get("message"))
+                           if str(result.get("status", "")).lower() != "success" else None,
+                 "message": result.get("message"),
+                 "issues": slim[:50]},
+                ensure_ascii=False,
+            )[:max_chars]
+
+        return json.dumps(result, ensure_ascii=False)[:max_chars]
+
+    def _run_tool_loop(
+        messages: List[Any],
+        adapter: Any,
+        tools: Optional[List[Dict[str, Any]]],
+        max_rounds: int = MAX_TOOL_ROUNDS,
+        is_reasoning_model: bool = False,
+    ) -> Dict[str, Any]:
+        """执行最多 max_rounds 轮工具调用，把结果以标准 tool 消息回灌上下文。
+
+        与旧实现的区别：旧代码把 assistant/tool 消息 append 进 messages 后，
+        又在 report_messages 里重建了一个只有 system+user 的序列，等于把工具
+        结果全丢了；而且 assistant 缺 tool_calls、tool 缺 tool_call_id，
+        这个序列本身也会被服务端以 400/422 拒收。
+
+        返回：error / messages / answered / content / tool_calls / tool_results /
+              rounds / usage
+        """
+        from nexus.llm.llm_adapter import ChatMessage
+
+        tool_calls_all: List[Dict[str, Any]] = []
+        tool_results_all: List[Dict[str, Any]] = []
+        usage: Dict[str, Any] = {}
+        rounds = 0
+        reg = get_registry()
+
+        def _call_llm() -> Any:
+            kwargs: Dict[str, Any] = {
+                "max_tokens": 8192 if is_reasoning_model else 1024
+            }
+            if tools:
+                kwargs["tools"] = tools
+                kwargs["tool_choice"] = "auto"
+            return adapter.chat(messages, **kwargs)
+
+        while rounds < max_rounds:
+            response = _call_llm()
+            if not response.is_success:
+                return {
+                    "error": response.error or "LLM 调用失败",
+                    "messages": messages, "answered": False, "content": "",
+                    "tool_calls": tool_calls_all,
+                    "tool_results": tool_results_all,
+                    "rounds": rounds, "usage": usage,
+                }
+            usage = response.usage or usage
+
+            # 归一化本轮待执行调用，两类来源都转成统一结构
+            pending: List[Dict[str, Any]] = []
+            if response.tool_calls:
+                for tc in response.tool_calls:
+                    pending.append({
+                        "id": tc.id,
+                        "name": tc.function_name,
+                        "args": tc.function_args,
+                        "payload": tc.to_dict(),
+                    })
+            else:
+                parsed = _parse_text_tool_call(response.content) if rounds == 0 else None
+                if parsed:
+                    tid = f"text_{uuid.uuid4().hex[:8]}"
+                    pending.append({
+                        "id": tid,
+                        "name": parsed["function_name"],
+                        "args": parsed["function_args"],
+                        "payload": {
+                            "id": tid, "type": "function",
+                            "function": {
+                                "name": parsed["function_name"],
+                                "arguments": json.dumps(
+                                    parsed["function_args"], ensure_ascii=False
+                                ),
+                            },
+                        },
+                    })
+
+            if not pending:
+                # 模型给出的是最终回答
+                return {
+                    "error": None, "messages": messages, "answered": True,
+                    "content": response.content,
+                    "tool_calls": tool_calls_all,
+                    "tool_results": tool_results_all,
+                    "rounds": rounds, "usage": usage,
+                }
+
+            logger.info(
+                "[Agent Chat] round %d: %d tool call(s) -> %s",
+                rounds + 1, len(pending), [p["name"] for p in pending],
+            )
+
+            messages.append(ChatMessage(
+                role="assistant",
+                content=response.content or "",
+                tool_calls=[p["payload"] for p in pending],
+            ))
+
+            for item in pending:
+                tool_name = item["name"]
+                # 不打印 args：里面是完整源码
+                logger.info("[Agent Chat] Executing tool: %s (args %d bytes)",
+                            tool_name, len(json.dumps(item["args"], ensure_ascii=False)))
+                failed = False
+                try:
+                    raw = reg.execute_skill(tool_name, item["args"])
+                    if isinstance(raw, dict):
+                        state = str(raw.get("status", "")).strip().lower()
+                        failed = state in ("error", "failed", "blocked", "timeout")
+                    else:
+                        raw = {"status": "error", "message": "返回格式异常"}
+                        failed = True
+                except Exception as exc:
+                    logger.warning("[Agent Chat] tool %s raised: %s", tool_name, exc)
+                    raw = {"status": "error", "message": str(exc)}
+                    failed = True
+
+                # 失败必须留痕：这次对话只记了"Executing tool"，
+                # 四个工具集体 403 时没有任何日志可查，只能事后猜。
+                if failed:
+                    logger.warning(
+                        "[Agent Chat] tool %s failed: reason=%s message=%s",
+                        tool_name,
+                        _classify_failure(raw.get("message") if isinstance(raw, dict) else None),
+                        str(raw.get("message") if isinstance(raw, dict) else raw)[:300],
+                    )
+
+                messages.append(ChatMessage(
+                    role="tool",
+                    content=_compress_tool_result(tool_name, raw),
+                    tool_call_id=item["id"],
+                ))
+                tool_calls_all.append({
+                    "id": item["id"], "name": tool_name, "args": item["args"],
+                })
+                tool_results_all.append({
+                    "tool_name": tool_name,
+                    "status": "error" if failed else "success",
+                    "result": raw,
+                    "error": (raw.get("message") if failed and isinstance(raw, dict) else None),
+                })
+
+            rounds += 1
+
+        # 轮次用尽，模型还想继续调工具：不再执行，交给调用方收口
+        return {
+            "error": None, "messages": messages, "answered": False, "content": "",
+            "tool_calls": tool_calls_all,
+            "tool_results": tool_results_all,
+            "rounds": rounds, "usage": usage,
+        }
+
     def _agent_chat_prepare(message: str, input_type: str) -> Dict[str, Any]:
-        """执行「工具链决策 + 工具执行」，返回生成最终回答所需的上下文。
+        """执行「多轮工具调用」，返回生成最终回答所需的上下文。
+
+        工具结果以标准 assistant(tool_calls) + tool(tool_call_id) 消息回灌到
+        messages，模型在后续轮次里读到的是结构化工具输出，不是二手摘要。
 
         返回 dict：
             - error：出错时存在，值为 {"message": str, "status": int, "refused": bool}
             - 成功时：provider / model / usage / has_tool_calls / tool_calls / tool_results /
-              final_messages（需要生成最终报告的 messages，无工具调用时为 None）/
-              direct_answer（无工具调用时的直接回答）/
+              tool_rounds（实际执行的工具轮次）/
+              final_messages（需要生成最终报告的 messages；模型已自行作答时为 None）/
+              direct_answer（模型已自行作答时的回答）/
               adapter / max_tokens（生成最终报告的 max_tokens）
         """
         try:
@@ -2589,6 +3173,32 @@ def create_app() -> Flask:
                     "- 并发缺陷 → concurrency_check\n"
                     "- SCA扫描 → sca_cve_scanner\n"
                     "- 普通对话/知识问答 → 直接回答，无需调用工具\n\n"
+                    "工具参数约束（不遵守会直接失败）：\n"
+                    "- 凡是带 code 内联分析的 SymPas 工具（sympas_slice / sympas_slice_table / "
+                    "sympas_dep_graph），必须同时传 filename（含后缀，如 probe.cj）和 lang"
+                    "（cangjie/c/cpp/java/python）\n"
+                    "- 只传 code 不给 lang 的后果：sympas_slice 会 HTTP 500（后端按 source.c "
+                    "编译仓颉失败）；sympas_slice_table 会返回空表且状态仍是 success。"
+                    "看到空结果时先检查自己有没有传 lang，不要直接下结论\n"
+                    "- 需要程序切片时用 sympas_slice_table，不要用 sympas_slice："
+                    "后者只要遇到跨函数调用或 Array 参数，data.backward_slices 就恒为空，"
+                    "切片只写进 raw_output 日志；sympas_slice_table 在这些情况下都能返回"
+                    "结构化结果。direction 传 \"Bwd\"，不要传 \"Both\""
+                    "（Both 会把两个方向混进 backward_slices 并丢掉 forward_slices）\n"
+                    "- 不要给 file 参数传文件名。file 是服务器工作区路径，传不存在的路径会 400；"
+                    "内联代码一律用 code + filename + lang\n"
+                    "- sympas_dep_graph 不接受 file 参数\n"
+                    "- sympas_dep_graph 的 graph_types 要传字符串而不是数组："
+                    "传 \"All\" 取全部 7 种（Cfg/Cg/Cdg/Ddg/Pdg/Sdg/Dfg），或传单个类型\n"
+                    "- 分析结果的 status 有三态：pass=已拿到结果；empty=工具执行了但没有内容"
+                    "（不代表安全）；reject=工具失败（不能当作无风险）。"
+                    "讨论风险时必须区分这三种情况\n"
+                    "- 依赖图已由系统转成 \"n0_16->n0_4\" 形式的紧凑文本，直接读边判断循环即可，"
+                    "不要去解析 SVG（SVG 是画给用户的，里面全是坐标）\n"
+                    "- 仓颉代码在规则扫描下命中恒为 0，这是规则集不覆盖该语言导致，"
+                    "不等于无漏洞；此时应改用 sympas_slice / sympas_dep_graph 佐证\n"
+                    "- 同一轮不要重复调用参数完全相同的工具。已经拿到 pass 结果就不要重试；"
+                    "失败时先改参数（多半是缺 lang），仍失败就如实说明并基于已有证据作答\n\n"
                     "工作流程：\n"
                     "1. 理解用户的问题，判断是否需要调用工具\n"
                     "2. 如果需要工具，选择最合适的工具并调用\n"
@@ -2610,236 +3220,48 @@ def create_app() -> Flask:
 
             logger.info(f"[Agent Chat] Sending to LLM: model={model}, tools_count={len(tools)}, message_len={len(message)}, input_type={input_type}")
 
-            # 推理模型（如 deepseek-reasoner）需要更大的 max_tokens，因为推理 token 也计入限制
+            # 推理模型（如 deepseek-reasoner）的推理 token 也计入 max_tokens，需要更大预算
             is_reasoning_model = "reasoner" in model.lower() or "o1" in model.lower() or "o3" in model.lower()
-            # 总是将工具列表提供给 LLM，由 LLM 自主判断是否需要调用工具
-            if tools:
-                response = adapter.chat(messages, max_tokens=8192 if is_reasoning_model else 1024, tools=tools, tool_choice="auto")
-            else:
-                response = adapter.chat(messages, max_tokens=8192 if is_reasoning_model else 2048)
 
-            logger.info(f"[Agent Chat] LLM response: has_tool_calls={response.has_tool_calls}, content_len={len(response.content)}, tool_calls_count={len(response.tool_calls)}")
-
-            if response.tool_calls:
-                for tc in response.tool_calls:
-                    logger.info(f"[Agent Chat] Tool call: {tc.function_name}({tc.function_args})")
-
-            if not response.is_success:
-                error_msg = response.error or "LLM 调用失败"
-                logger.error(f"[Agent Chat] LLM failed: {error_msg}")
+            loop = _run_tool_loop(
+                messages=messages,
+                adapter=adapter,
+                tools=tools,
+                max_rounds=MAX_TOOL_ROUNDS,
+                is_reasoning_model=is_reasoning_model,
+            )
+            if loop.get("error"):
+                logger.error(f"[Agent Chat] LLM failed: {loop['error']}")
                 return {
                     "error": {
-                        "message": error_msg,
+                        "message": loop["error"],
                         "status": 500,
                         "refused": False,
                     }
                 }
 
-            tool_calls: List[Dict[str, Any]] = []
-            tool_results: List[Dict[str, Any]] = []
+            answered = bool(loop.get("answered"))
+            logger.info(
+                "[Agent Chat] tool rounds=%d calls=%d answered=%s",
+                loop.get("rounds", 0), len(loop.get("tool_calls") or []), answered,
+            )
 
-            text_tool_call = None
-            if response.content and not response.has_tool_calls:
-                import re
-                content = response.content.strip()
-                logger.info(f"[Agent Chat] Response content: {content[:200]}")
-
-                match = re.search(r'^(\w+)\s*\(\s*code\s*=\s*["\'](.+)["\']\s*\)$', content, re.DOTALL)
-                if match:
-                    text_tool_call = {
-                        "function_name": match.group(1),
-                        "function_args": {"code": match.group(2).replace('\\"', '"')}
-                    }
-                    logger.info(f"[Agent Chat] Parsed text tool call: {text_tool_call}")
-                else:
-                    match2 = re.search(r'(\w+)\s*\(\s*code\s*=\s*(.+?)\s*\)', content)
-                    if match2:
-                        text_tool_call = {
-                            "function_name": match2.group(1),
-                            "function_args": {"code": match2.group(2).strip('"\'').replace('\\"', '"')}
-                        }
-                        logger.info(f"[Agent Chat] Parsed text tool call (alt): {text_tool_call}")
-
-            has_tool_calls = bool(response.has_tool_calls or text_tool_call)
-
-            if has_tool_calls:
-                reg = get_registry()
-
-                tool_calls_to_process = []
-                if text_tool_call:
-                    tool_calls_to_process.append(text_tool_call)
-                for tc in response.tool_calls:
-                    tool_calls_to_process.append({
-                        "function_name": tc.function_name,
-                        "function_args": tc.function_args,
-                        "id": tc.id
-                    })
-
-                for tc in tool_calls_to_process:
-                    tool_result = {}
-                    try:
-                        func_name = tc["function_name"]
-                        func_args = tc["function_args"]
-                        logger.info(f"[Agent Chat] Executing tool: {func_name} with args: {func_args}")
-
-                        exec_result = reg.execute_skill(func_name, func_args)
-
-                        is_success = True
-                        error_msg = None
-                        if isinstance(exec_result, dict):
-                            if exec_result.get("success") is False or exec_result.get("error"):
-                                is_success = False
-                                error_msg = exec_result.get("error", exec_result.get("message", "执行失败"))
-                            elif exec_result.get("status") == "error" or "MCP call failed" in str(exec_result.get("message", "")):
-                                is_success = False
-                                error_msg = exec_result.get("message", "工具执行失败")
-                            elif exec_result.get("status_code") or (isinstance(exec_result.get("message"), str) and "404" in exec_result["message"]):
-                                is_success = False
-                                error_msg = exec_result.get("message", "工具调用失败")
-
-                        tool_result = {
-                            "tool_name": func_name,
-                            "status": "success" if is_success else "error",
-                            "result": exec_result,
-                            "error": error_msg,
-                        }
-                    except Exception as exc:
-                        tool_result = {
-                            "tool_name": func_name,
-                            "status": "error",
-                            "error": str(exc),
-                        }
-
-                    tool_calls.append({
-                        "id": tc.get("id", ""),
-                        "name": func_name,
-                        "args": func_args,
-                    })
-                    tool_results.append(tool_result)
-
-                    messages.append(ChatMessage(role="assistant", content=""))
-                    messages.append(ChatMessage(role="tool", content=json.dumps(tool_result)))
-
-                if tool_results:
-                    logger.info(f"[Agent Chat] tool_results found: {len(tool_results)}")
-
-                    tool_results_summary = ""
-                    for tr in tool_results:
-                        tool_results_summary += f"工具: {tr['tool_name']}\n"
-                        tool_results_summary += f"状态: {tr['status']}\n"
-                        if tr["result"]:
-                            if isinstance(tr["result"], dict):
-                                if tr["result"].get("findings"):
-                                    for f in tr["result"]["findings"]:
-                                        tool_results_summary += f"  - CWE-{f.get('cwe', '')}: {f.get('name', '')} (行{f.get('line', '')}, 严重度{f.get('severity', '')})\n"
-                                elif tr["result"].get("message"):
-                                    tool_results_summary += f"  结果: {tr['result']['message']}\n"
-                                elif tr["result"].get("open_ports"):
-                                    tool_results_summary += f"  开放端口: {', '.join([str(p['port']) for p in tr['result']['open_ports'][:5]])}\n"
-                                elif tr["result"].get("found_paths"):
-                                    tool_results_summary += f"  发现路径: {', '.join([p['path'] for p in tr['result']['found_paths'][:5]])}\n"
-                                elif tr["result"].get("vulnerabilities"):
-                                    tool_results_summary += f"  漏洞数量: {len(tr['result']['vulnerabilities'])}\n"
-                                    for v in tr["result"]["vulnerabilities"][:3]:
-                                        tool_results_summary += f"    - {v.get('type', '')}: {v.get('param', '')}\n"
-                                elif tr["result"].get("flags_found"):
-                                    tool_results_summary += f"  Flag: {', '.join(tr['result']['flags_found'])}\n"
-                                elif tr["result"].get("output"):
-                                    tool_results_summary += f"  输出: {tr['result']['output'][:200]}\n"
-                                else:
-                                    tool_results_summary += f"  结果: {json.dumps(tr['result'], ensure_ascii=False)[:200]}...\n"
-                            else:
-                                tool_results_summary += f"  结果: {str(tr['result'])[:200]}...\n"
-                        tool_results_summary += "\n"
-
-                    logger.info(f"[Agent Chat] Tool results summary: {tool_results_summary[:500]}")
-
-                    import re
-                    user_cwes = re.findall(r'CWE-(\d+)', message)
-                    user_cwes_str = ", ".join([f"CWE-{c}" for c in user_cwes]) if user_cwes else "无"
-
-                    if report_format == "CTF":
-                        report_prompt = (
-                            f"用户的原始问题：\n{message}\n\n"
-                            f"工具调用结果：\n{tool_results_summary}\n\n"
-                            "请根据以上信息，结合你的CTF专业知识，给用户一个完整、清晰的回答。\n\n"
-                            "要求：\n"
-                            "1. 直接回答用户的问题，结合工具结果给出深入分析\n"
-                            "2. 使用 Markdown 格式，结构清晰\n"
-                            "3. 如果找到 Flag，用醒目方式标注\n"
-                            "4. 给出攻击思路、利用方法和总结\n"
-                            "5. 如果工具执行失败，说明原因并给出你基于知识的建议\n"
-                        )
-                        report_system_prompt = (
-                            "你是鉴真CTF智能体（CangSight），专业的CTF攻防助手。"
-                            "请根据工具调用结果和用户问题，结合你的CTF经验，给出完整、专业的回答。"
-                            "不要套用固定模板，根据实际问题自然组织回答。使用中文。"
-                        )
-                    else:
-                        report_prompt = (
-                            f"用户的原始问题：\n{message}\n\n"
-                            f"用户提到的CWE编号：{user_cwes_str}\n\n"
-                            f"工具调用结果：\n{tool_results_summary}\n\n"
-                            "请根据以上信息，结合你的安全专业知识，给用户一个完整、清晰的回答。\n\n"
-                            "要求：\n"
-                            "1. 直接回答用户的问题，结合工具结果给出深入分析，不要只复述工具输出\n"
-                            "2. 使用 Markdown 格式，结构清晰、重点突出\n"
-                            "3. 对于安全事件，给出明确的风险等级和处置建议\n"
-                            "4. 对于代码漏洞，指出具体位置和修复方案\n"
-                            "5. 如果工具执行失败，说明原因并给出你基于知识的分析\n"
-                        )
-                        report_system_prompt = (
-                            "你是鉴真安全智能体（CangSight），专业的安全运营助手。"
-                            "请根据工具调用结果和用户问题，结合你的安全专业知识，给出完整、专业的回答。"
-                            "不要套用固定模板，根据实际问题自然组织回答。使用中文。"
-                        )
-
-                    report_messages = [
-                        ChatMessage(role="system", content=report_system_prompt),
-                        ChatMessage(role="user", content=report_prompt),
-                    ]
-
-                    logger.info(f"[Agent Chat] Calling LLM for final report generation")
-                    return {
-                        "provider": provider,
-                        "model": model,
-                        "usage": response.usage,
-                        "has_tool_calls": has_tool_calls,
-                        "tool_calls": tool_calls,
-                        "tool_results": tool_results,
-                        "final_messages": report_messages,
-                        "direct_answer": None,
-                        "adapter": adapter,
-                        "max_tokens": 8192 if is_reasoning_model else 3000,
-                    }
-                else:
-                    logger.info(f"[Agent Chat] No tool results found")
-                    return {
-                        "provider": provider,
-                        "model": model,
-                        "usage": response.usage,
-                        "has_tool_calls": has_tool_calls,
-                        "tool_calls": tool_calls,
-                        "tool_results": tool_results,
-                        "final_messages": None,
-                        "direct_answer": response.content,
-                        "adapter": adapter,
-                        "max_tokens": 8192 if is_reasoning_model else 3000,
-                    }
-            else:
-                logger.info(f"[Agent Chat] No tool calls, using direct answer")
-                return {
-                    "provider": provider,
-                    "model": model,
-                    "usage": response.usage,
-                    "has_tool_calls": has_tool_calls,
-                    "tool_calls": tool_calls,
-                    "tool_results": tool_results,
-                    "final_messages": None,
-                    "direct_answer": response.content,
-                    "adapter": adapter,
-                    "max_tokens": 8192 if is_reasoning_model else 3000,
-                }
+            # answered=True 说明模型已经把工具结果消化完并直接给出回答，
+            # 无需再调一次 LLM；否则把带 tool 消息的完整序列交给调用方生成报告。
+            # 旧实现无论哪种情况都重建 report_messages，等于把工具结果整段丢弃。
+            return {
+                "provider": provider,
+                "model": model,
+                "usage": loop.get("usage") or {},
+                "has_tool_calls": bool(loop.get("tool_calls")),
+                "tool_calls": loop.get("tool_calls") or [],
+                "tool_results": loop.get("tool_results") or [],
+                "tool_rounds": loop.get("rounds", 0),
+                "final_messages": None if answered else loop.get("messages"),
+                "direct_answer": loop.get("content") if answered else None,
+                "adapter": adapter,
+                "max_tokens": 8192 if is_reasoning_model else 3000,
+            }
 
         except Exception as exc:
             logger.exception("Agent chat failed")
@@ -2875,6 +3297,7 @@ def create_app() -> Flask:
             "has_tool_calls": ctx["has_tool_calls"],
             "tool_calls": ctx["tool_calls"],
             "tool_results": ctx["tool_results"],
+            "tool_rounds": ctx.get("tool_rounds", 0),
         }
 
         if ctx["final_messages"] is not None:
@@ -2920,12 +3343,14 @@ def create_app() -> Flask:
                 "model": ctx["model"],
                 "has_tool_calls": ctx["has_tool_calls"],
                 "tool_calls_count": len(ctx["tool_calls"]),
+                "tool_rounds": ctx.get("tool_rounds", 0),
             })
 
             if ctx["tool_results"]:
                 yield _sse("tools", {
                     "tool_calls": ctx["tool_calls"],
                     "tool_results": ctx["tool_results"],
+                    "tool_rounds": ctx.get("tool_rounds", 0),
                 })
 
             answer_parts: List[str] = []

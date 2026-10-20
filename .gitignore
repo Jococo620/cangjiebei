@@ -58,3 +58,6 @@ local_overrides/
 
 cangjie_engine/bin/
 cangjie_engine/target/
+
+# 分析产物与工作文档（本地生成，不进仓库）
+_out/

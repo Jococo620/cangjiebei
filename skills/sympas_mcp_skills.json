@@ -817,7 +817,7 @@
   "sympas_slice": {
     "skill_id": "sympas_slice",
     "name": "Sympas 符号切片分析",
-    "description": "基于符号切片分析后端对 C/C++ 文件执行后向切片，输出变量的数据依赖与控制依赖切片路径。",
+    "description": "对单个文件执行后向（或前向）符号切片，输出每个变量依赖的代码行号。支持 cangjie / c / cpp / java / python。内联代码必须同时给 code 与 lang，只给 code 会被当成 C 文件编译而失败（HTTP 500）。",
     "provider_type": "mcp_http",
     "endpoint": "{{SYMPAS_MCP_URL}}/tools/sympas_slice",
     "danger_level": "safe",
@@ -825,10 +825,19 @@
       "type": "object",
       "properties": {
         "file": {
-          "type": "string"
+          "type": "string",
+          "description": "服务器工作区内已存在的文件路径。内联代码不要用这个字段，请改用 code + filename + lang"
         },
         "code": {
           "type": "string"
+        },
+        "filename": {
+          "type": "string",
+          "description": "文件名（含后缀），用于语言判定，例如 p.cj"
+        },
+        "lang": {
+          "type": "string",
+          "description": "语言标识：cangjie / c / cpp / java / python"
         },
         "criteria": {
           "type": "string"
@@ -1091,7 +1100,7 @@
   "sympas_slice_table": {
     "skill_id": "sympas_slice_table",
     "name": "Sympas 切片表导出",
-    "description": "导出程序末尾所有单变量的完整切片表，支持 json/markdown/csv 格式，并返回产物下载链接。",
+    "description": "导出所有单变量的完整切片表，行号比 sympas_slice 更精确，支持 json/markdown/csv 格式并返回产物下载链接。内联代码必须给 code + filename + lang；只给 code 会被当成 C 文件，返回空表。",
     "provider_type": "mcp_http",
     "endpoint": "{{SYMPAS_MCP_URL}}/tools/sympas_slice_table",
     "danger_level": "safe",
@@ -1099,7 +1108,20 @@
       "type": "object",
       "properties": {
         "file": {
-          "type": "string"
+          "type": "string",
+          "description": "服务器工作区内已存在的文件路径。不要用它传文件名，路径不存在会返回 400；内联代码请改用 code + filename + lang"
+        },
+        "code": {
+          "type": "string",
+          "description": "内联源代码"
+        },
+        "filename": {
+          "type": "string",
+          "description": "内联代码的虚拟文件名（含后缀），用于语言判定，例如 p.cj"
+        },
+        "lang": {
+          "type": "string",
+          "description": "语言标识：cangjie / c / cpp / java / python。只传 code 不传 lang 会被当成 C 文件，仓颉代码切不出任何变量"
         },
         "criteria": {
           "type": "string"
@@ -1174,12 +1196,26 @@
     "input_schema": {
       "type": "object",
       "properties": {
+        "code": {
+          "type": "string",
+          "description": "代码内容。与 file 二选一，前端走这个"
+        },
+        "filename": {
+          "type": "string",
+          "description": "文件名（含后缀），用于语言判定与产物命名，例如 p.cj"
+        },
+        "lang": {
+          "type": "string",
+          "description": "语言标识：cangjie / c / cpp / java / python"
+        },
         "file": {
-          "type": "string"
+          "type": "string",
+          "description": "服务端已有文件的路径。与 code 二选一，前端不使用"
         },
         "graph_types": {
           "type": "string",
-          "default": "All"
+          "default": "All",
+          "description": "图类型。传字符串：All 或单个类型 (Cfg/Cg/Cdg/Ddg/Pdg/Sdg/Dfg)。不要传数组，本地 jsonschema 声明为 string"
         },
         "formats": {
           "type": "array",
@@ -1192,9 +1228,7 @@
           ]
         }
       },
-      "required": [
-        "file"
-      ]
+      "required": []
     }
   },
   "sympas_dynamic_slice": {

@@ -369,11 +369,16 @@ export class ApiClient {
         }, { timeout: 10000, retries: 1 });
     }
 
-    analyzeCode(content, filename) {
+    // 深度分析会串行调用 SymPas 的切片与依赖图，单次最坏约 1.5 秒；
+    // 30 秒对首次冷启动 + 7 张图的场景不够，留 120 秒。
+    analyzeCode(content, filename, options = {}) {
         return this.post("/threat/analyze", {
             content,
             filename,
-        }, { timeout: 30000 });
+            lang: options.lang || undefined,
+            include_slice: options.includeSlice !== false,
+            include_graph: options.includeGraph === true,
+        }, { timeout: 120000 });
     }
 
     cweSearch(pattern = "") {

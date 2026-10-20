@@ -1325,6 +1325,23 @@
                                     placeholder="粘贴需要扫描的代码。支持语言: C/C++/Cangjie/鸿蒙仓颉/Java/Python/JavaScript/TypeScript/Go/PHP/Rust"
                                 ></textarea>
                                 <p>单个文件建议不超过 1 MB。支持语言：C、C++、<strong>鸿蒙仓颉(Cangjie)</strong>、Java、Python、JavaScript、TypeScript、Go、PHP、Rust。扫描结果来自本地规则和分析器。</p>
+                                <fieldset class="code-options">
+                                    <legend>深度分析（SymPas）</legend>
+                                    <label class="code-option">
+                                        <input id="code-slice" type="checkbox" checked>
+                                        <span>
+                                            变量后向切片
+                                            <em>列出每个变量依赖的代码行，用于人工复核数据流</em>
+                                        </span>
+                                    </label>
+                                    <label class="code-option">
+                                        <input id="code-graph" type="checkbox">
+                                        <span>
+                                            依赖图（控制流 / 数据流等 7 种）
+                                            <em>开启后单次扫描约多 0.3–0.7 秒</em>
+                                        </span>
+                                    </label>
+                                </fieldset>
                                 <button class="button button-primary" id="code-submit" type="submit">开始扫描</button>
                             </form>
 
