@@ -830,6 +830,14 @@
         "code": {
           "type": "string"
         },
+        "filename": {
+          "type": "string",
+          "description": "文件名（含后缀），用于语言判定，例如 p.cj"
+        },
+        "lang": {
+          "type": "string",
+          "description": "语言标识：cangjie / c / cpp / java / python"
+        },
         "criteria": {
           "type": "string"
         },
@@ -1174,12 +1182,26 @@
     "input_schema": {
       "type": "object",
       "properties": {
+        "code": {
+          "type": "string",
+          "description": "代码内容。与 file 二选一，前端走这个"
+        },
+        "filename": {
+          "type": "string",
+          "description": "文件名（含后缀），用于语言判定与产物命名，例如 p.cj"
+        },
+        "lang": {
+          "type": "string",
+          "description": "语言标识：cangjie / c / cpp / java / python"
+        },
         "file": {
-          "type": "string"
+          "type": "string",
+          "description": "服务端已有文件的路径。与 code 二选一，前端不使用"
         },
         "graph_types": {
           "type": "string",
-          "default": "All"
+          "default": "All",
+          "description": "图类型。传字符串：All 或单个类型 (Cfg/Cg/Cdg/Ddg/Pdg/Sdg/Dfg)。不要传数组，本地 jsonschema 声明为 string"
         },
         "formats": {
           "type": "array",
@@ -1192,9 +1214,7 @@
           ]
         }
       },
-      "required": [
-        "file"
-      ]
+      "required": []
     }
   },
   "sympas_dynamic_slice": {
