@@ -231,7 +231,23 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
         });
     });
 
-    function renderToolResults(toolResults) {
+    function createToolCallSection(labelText, codeText) {
+        const section = document.createElement("div");
+        section.className = "tool-call-section";
+        const label = document.createElement("span");
+        label.className = "tool-call-label";
+        label.textContent = labelText;
+        const code = document.createElement("pre");
+        code.className = "tool-call-code";
+        code.textContent = codeText;
+        section.append(label, code);
+        return section;
+    }
+
+    // 工具调用历史：每个调用一个折叠块。
+    // 入参里可能是整段源码，返回里可能是 20KB 原始 MCP 响应，所以折叠时只给
+    // 序号、工具名、状态和参数名；展开后才给完整内容，靠限高滚动，不做截断。
+    function renderToolResults(toolResults, toolCalls) {
         chatToolResults.replaceChildren();
         const title = document.createElement("strong");
         title.textContent = "工具调用";
@@ -244,16 +260,54 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
             return;
         }
 
+        const calls = Array.isArray(toolCalls) ? toolCalls : [];
         const list = document.createElement("ol");
         list.className = "tool-result-list";
+
         toolResults.forEach((tool, index) => {
+            // tool_calls 与 tool_results 是同一顺序 push 的，按下标配对参数
+            const call = calls[index] || {};
+            const name = tool?.tool_name || call?.name || `工具 ${index + 1}`;
+            const ok = tool?.status === "success";
+            const args = call?.args;
+            const argKeys = args && typeof args === "object" && !Array.isArray(args)
+                ? Object.keys(args)
+                : [];
+
             const item = document.createElement("li");
-            const name = tool?.tool_name || `工具 ${index + 1}`;
-            const status = tool?.status === "success" ? "成功" : "失败";
-            const summary = tool?.error || compactJson(tool?.result, 320);
-            item.textContent = `${name}：${status}\n${summary}`;
+            const details = document.createElement("details");
+            details.className = "tool-call";
+
+            const summary = document.createElement("summary");
+            const order = document.createElement("span");
+            order.className = "tool-call-order";
+            order.textContent = String(index + 1);
+            const nameEl = document.createElement("span");
+            nameEl.className = "tool-call-name";
+            nameEl.textContent = name;
+            const stateEl = document.createElement("span");
+            stateEl.className = `tool-call-state ${ok ? "is-ok" : "is-bad"}`;
+            stateEl.textContent = ok ? "成功" : "失败";
+            const hint = document.createElement("span");
+            hint.className = "tool-call-hint";
+            hint.textContent = argKeys.length ? argKeys.join(" · ") : "无参数";
+            summary.append(order, nameEl, stateEl, hint);
+
+            const body = document.createElement("div");
+            body.className = "tool-call-body";
+            if (argKeys.length) {
+                body.append(createToolCallSection("调用参数", textValue(args)));
+            }
+            if (!ok && tool?.error) {
+                body.append(createToolCallSection("错误", String(tool.error)));
+            }
+            body.append(createToolCallSection("返回结果", textValue(tool?.result)));
+
+            details.append(summary, body);
+            item.append(details);
             list.append(item);
         });
+
         chatToolResults.append(list);
     }
 
@@ -305,7 +359,7 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
             },
             onTools(data) {
                 toolsRendered = true;
-                renderToolResults(data?.tool_results);
+                renderToolResults(data?.tool_results, data?.tool_calls);
                 pending.body.textContent = "工具执行完成，正在生成分析报告...";
                 pending.message.querySelector(".message-meta span").textContent = "生成报告中";
             },
@@ -319,7 +373,7 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
                         || "分析已完成，但智能体未能生成文字回答。您可以重试或换一种方式描述问题。";
                 }
                 if (!toolsRendered) {
-                    renderToolResults(data?.tool_results);
+                    renderToolResults(data?.tool_results, data?.tool_calls);
                 }
 
                 const statusText = [];

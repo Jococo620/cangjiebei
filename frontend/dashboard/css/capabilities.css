@@ -320,6 +320,114 @@
     font-size: 13px;
 }
 
+/* ---- 工具调用：折叠块 ---- */
+.tool-call {
+    border-radius: var(--radius-control);
+}
+
+.tool-call summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 2px;
+    cursor: pointer;
+    list-style: none;
+}
+
+/* 去掉默认三角，用自绘的箭头，展开状态跟着 details 走 */
+.tool-call summary::-webkit-details-marker {
+    display: none;
+}
+
+.tool-call summary::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid var(--text-muted);
+    border-bottom: 1.5px solid var(--text-muted);
+    transform: rotate(-45deg);
+    transition: transform 0.15s ease;
+}
+
+.tool-call[open] summary::before {
+    transform: rotate(45deg);
+}
+
+.tool-call summary:hover .tool-call-name {
+    color: var(--accent-strong);
+}
+
+.tool-call-order {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+}
+
+.tool-call-name {
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    font-weight: 700;
+}
+
+.tool-call-state {
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+}
+
+.tool-call-state.is-ok {
+    background: var(--surface-success);
+    color: var(--success);
+}
+
+.tool-call-state.is-bad {
+    background: var(--surface-danger);
+    color: var(--danger);
+}
+
+.tool-call-hint {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+}
+
+.tool-call-body {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+}
+
+.tool-call-section {
+    display: grid;
+    gap: 4px;
+}
+
+.tool-call-label {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+/* 完整内容不限字符数，靠高度滚动，避免 20KB 的返回把页面撑开 */
+.tool-call-code {
+    max-height: 360px;
+    margin: 0;
+    padding: 10px 12px;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface-subtle);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
 .analysis-layout,
 .code-layout,
 .ctf-layout {
