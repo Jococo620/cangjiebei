@@ -1,4 +1,5 @@
 import { api } from "./api-client.js";
+import { createGraphViewer } from "./graph-render.js";
 
 const TERMINAL_RUN_STATES = new Set([
     "completed",
@@ -156,6 +157,8 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
     const codeState = query("#code-state");
     const codeRisk = query("#code-risk");
     const codeFindings = query("#code-findings");
+    const codeSliceToggle = query("#code-slice");
+    const codeGraphToggle = query("#code-graph");
     const scanCritical = query("#scan-critical");
     const scanHigh = query("#scan-high");
     const scanMedium = query("#scan-medium");
@@ -322,6 +325,9 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
                 const statusText = [];
                 if (data?.provider && data?.model) {
                     statusText.push(`${data.provider} / ${data.model}`);
+                }
+                if (data?.tool_rounds) {
+                    statusText.push(`${data.tool_rounds} 轮工具`);
                 }
                 if (data?.tool_calls?.length) {
                     statusText.push(`${data.tool_calls.length} 次工具调用`);
@@ -496,69 +502,244 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
         scanLow.textContent = String(counts.low);
     }
 
+    // 上一次渲染出来的图查看器，重绘前必须 destroy，否则 ResizeObserver 会泄漏
+    let activeGraphViewer = null;
+
+    function destroyGraphViewer() {
+        if (!activeGraphViewer) return;
+        activeGraphViewer.destroy();
+        activeGraphViewer = null;
+    }
+
+    // 工具三态：pass 有结果 / empty 跑了但空 / reject 工具失败。
+    // empty 与 reject 都不能读成“安全”，文案上必须区分开。
+    const STAGE_NAME = {
+        code_scan: "规则扫描",
+        slice: "变量切片",
+        graph: "依赖图",
+    };
+    const STAGE_STATE = {
+        pass: "有结果",
+        empty: "无结果",
+        reject: "失败",
+        skipped: "未执行",
+    };
+    const SKIP_REASON = {
+        not_requested: "未请求",
+        no_slice: "后端未切出变量",
+        no_graph: "后端未生成图",
+        backend_500: "后端生成失败，该语法可能不被支持",
+        tool_error: "工具调用失败",
+    };
+
+    function describeRisk(data) {
+        const risk = data?.composite_risk;
+        if (risk && typeof risk === "object") {
+            const overall = Number(risk.overall);
+            const label = String(risk.label || "").toUpperCase();
+            if (!Number.isFinite(overall) && !label) return "未返回综合风险";
+            const score = Number.isFinite(overall) ? overall : "—";
+            return label ? `综合风险 ${score} / ${label}` : `综合风险 ${score}`;
+        }
+        if (risk === undefined || risk === null) return "未返回综合风险";
+        return `综合风险 ${textValue(risk)}`;
+    }
+
+    function createSection(className, titleText) {
+        const section = document.createElement("div");
+        section.className = className;
+        const title = document.createElement("h4");
+        title.textContent = titleText;
+        section.append(title);
+        return section;
+    }
+
+    function appendMutedRow(section, text) {
+        const row = document.createElement("div");
+        row.className = "slice-row";
+        row.textContent = text;
+        section.append(row);
+    }
+
+    function renderSliceBlock(slice) {
+        if (!slice) return null;
+        const section = createSection("slice-result", "变量后向切片");
+
+        if (slice.status === "skipped") {
+            appendMutedRow(section, "本次未执行切片（勾选「变量后向切片」后重新扫描）");
+            return section;
+        }
+        if (slice.status !== "pass") {
+            appendMutedRow(
+                section,
+                `切片未产出：${SKIP_REASON[slice.reason] || slice.reason || slice.message || "未知原因"}`,
+            );
+            return section;
+        }
+
+        const vars = Array.isArray(slice.vars) ? slice.vars : [];
+        if (!vars.length) {
+            appendMutedRow(section, "切片已执行，但没有可展示的变量依赖");
+            return section;
+        }
+
+        vars.slice(0, 30).forEach((item) => {
+            const lines = Array.isArray(item.lines) ? item.lines : [];
+            const shown = lines.slice(0, 20).join(", ");
+            const more = lines.length > 20 ? ` …共 ${lines.length} 行` : "";
+            const scope = item.func ? `${item.var} @${item.func}` : String(item.var);
+            appendMutedRow(
+                section,
+                `${scope} · ${item.file || "当前文件"} · ${item.line_count ?? lines.length} 行`
+                + `（${item.span?.[0] ?? "?"}–${item.span?.[1] ?? "?"}）：${shown}${more}`,
+            );
+        });
+        if (vars.length > 30) {
+            appendMutedRow(section, `另有 ${vars.length - 30} 个变量未展示`);
+        }
+        if (slice.engine) {
+            appendMutedRow(section, `分析引擎：${slice.engine}`);
+        }
+        return section;
+    }
+
+    function renderGraphBlock(graph) {
+        if (!graph) return null;
+        const section = createSection("slice-result", "依赖图");
+
+        if (graph.status === "skipped") {
+            appendMutedRow(section, "本次未生成图（勾选「依赖图」后重新扫描）");
+            return section;
+        }
+        if (graph.status !== "pass") {
+            appendMutedRow(
+                section,
+                `图未产出：${SKIP_REASON[graph.reason] || graph.reason || graph.message || "未知原因"}`,
+            );
+            return section;
+        }
+
+        const graphs = Array.isArray(graph.graphs) ? graph.graphs : [];
+        if (!graphs.length) {
+            appendMutedRow(section, "后端返回的成功状态里没有图数据");
+            return section;
+        }
+
+        const summary = document.createElement("div");
+        summary.className = "code-meta";
+        summary.textContent = graphs
+            .map((item) => `${item.graph_type} ${item.node_count ?? "?"}n/${item.edge_count ?? "?"}e`)
+            .join(" · ");
+        section.append(summary);
+
+        const viewer = createGraphViewer({ graphs, activeType: "Cfg", height: "460px" });
+        activeGraphViewer = viewer;
+        section.append(viewer.element);
+        return section;
+    }
+
+    function renderStageBlock(stages) {
+        if (!Array.isArray(stages) || !stages.length) return null;
+        const section = createSection("stage-list", "分析阶段");
+
+        stages.forEach((stage) => {
+            const row = document.createElement("div");
+            row.className = "stage-row";
+
+            const name = document.createElement("span");
+            name.className = "stage-name";
+            name.textContent = STAGE_NAME[stage?.name] || stage?.name || "阶段";
+
+            const state = document.createElement("span");
+            const status = stage?.status || "empty";
+            state.className = `stage-state is-${status}`;
+            state.textContent = STAGE_STATE[status] || status;
+
+            const note = document.createElement("span");
+            note.className = "stage-note";
+            const parts = [];
+            if (stage?.note) parts.push(String(stage.note));
+            if (stage?.ms != null) parts.push(`${stage.ms} ms`);
+            note.textContent = parts.join(" · ");
+
+            row.append(name, state, note);
+            section.append(row);
+        });
+        return section;
+    }
+
     function renderCodeResult(data) {
         const ranking = Array.isArray(data?.sbfl?.ranking) ? data.sbfl.ranking : [];
+        const stages = Array.isArray(data?.stages) ? data.stages : [];
         setScanCounts(ranking);
         codeFindings.replaceChildren();
-        codeRisk.textContent = data?.composite_risk === undefined
-            ? "未返回综合风险"
-            : `综合风险 ${textValue(data.composite_risk)}`;
+        destroyGraphViewer();
 
-        if (!ranking.length) {
-            codeFindings.append(createResultState(
-                "未发现规则命中",
-                data?.recommendation || "本地分析器没有返回漏洞排序。仍建议结合测试与人工复核。",
-            ));
-            return;
-        }
+        codeRisk.textContent = describeRisk(data);
 
-        ranking.slice(0, 50).forEach((finding) => {
-            const item = document.createElement("article");
-            item.className = "finding-item";
-            const body = document.createElement("div");
-            const title = document.createElement("h4");
-            const detail = document.createElement("p");
-            const level = document.createElement("span");
-            const score = severityScore(finding);
-            title.textContent = `${finding.cwe || "CWE 未分类"}：${finding.name || "安全发现"}`;
-            detail.textContent = finding.line
-                ? `位置：第 ${finding.line} 行`
-                : "位置：分析器未返回具体行号";
-            level.className = "finding-severity";
-            level.textContent = `${severityLabel(score)} ${score || ""}`.trim();
-            body.append(title, detail);
-            item.append(body, level);
-            codeFindings.append(item);
-        });
-
-        if (Array.isArray(data?.slice?.taint_traces) && data.slice.taint_traces.length) {
-            const sliceBlock = document.createElement("div");
-            sliceBlock.className = "slice-result";
-            const sliceTitle = document.createElement("h4");
-            sliceTitle.textContent = "程序切片（数据流 / 污点追踪）";
-            sliceBlock.append(sliceTitle);
-            data.slice.taint_traces.forEach((trace) => {
-                const row = document.createElement("div");
-                row.className = "slice-row";
-                const src = trace?.source?.line;
-                const snk = trace?.sink?.line;
-                const path = (trace?.path || [])
-                    .map((p) => p?.line)
-                    .filter((n) => n != null);
-                const cwe = trace?.cwe_type || "CWE";
-                const pathText = path.length ? `（路径 ${path.join(" → ")}）` : "";
-                row.textContent = `${cwe}：第 ${src ?? "?"} 行 → 第 ${snk ?? "?"} 行${pathText}`;
-                sliceBlock.append(row);
-            });
-            if (data.slice.engine) {
-                const engineRow = document.createElement("div");
-                engineRow.className = "slice-row";
-                engineRow.textContent = `分析引擎：${data.slice.engine}`;
-                sliceBlock.append(engineRow);
+        // 分析对象：lang 回退成功时 file 与 effective_file 不同，必须让人看见换了后缀
+        if (data?.effective_file || data?.lang) {
+            const meta = document.createElement("div");
+            meta.className = "code-meta";
+            const parts = [];
+            if (data?.effective_file) parts.push(`文件 ${data.effective_file}`);
+            if (data?.lang) parts.push(`语言 ${data.lang}`);
+            if (data?.file && data?.effective_file && data.file !== data.effective_file) {
+                parts.push(`（原文件名 ${data.file}，已按内容回退）`);
             }
-            codeFindings.append(sliceBlock);
+            meta.textContent = parts.join(" · ");
+            codeFindings.append(meta);
         }
 
+        // 1. 规则命中。没有命中不是提前结束：切片与图必须照常展示。
+        if (ranking.length) {
+            ranking.slice(0, 50).forEach((finding) => {
+                const item = document.createElement("article");
+                item.className = "finding-item";
+                const body = document.createElement("div");
+                const title = document.createElement("h4");
+                const detail = document.createElement("p");
+                const level = document.createElement("span");
+                const score = severityScore(finding);
+                title.textContent = `${finding.cwe || "CWE 未分类"}：${finding.name || "安全发现"}`;
+                detail.textContent = finding.line
+                    ? `位置：第 ${finding.line} 行`
+                    : "位置：分析器未返回具体行号";
+                level.className = "finding-severity";
+                level.textContent = `${severityLabel(score)} ${score || ""}`.trim();
+                body.append(title, detail);
+                item.append(body, level);
+                codeFindings.append(item);
+            });
+        } else {
+            const scanStage = stages.find((stage) => stage?.name === "code_scan");
+            let titleText = "规则未命中";
+            let detailText = "规则扫描已完成，未命中已知规则。仍建议结合人工复核。";
+            if (scanStage?.status === "reject") {
+                titleText = "规则扫描失败";
+                detailText = data?.recommendation
+                    || "规则引擎不可用，本次结果不能作为安全判断依据。";
+            } else if (data?.lang === "cangjie") {
+                // 这是最容易误判的一条：仓颉规则命中恒为 0，不能说成“没漏洞”
+                titleText = "规则引擎未覆盖仓颉";
+                detailText = "仓颉代码在规则集下命中恒为 0，这只代表「没扫到」，不代表「没有风险」。请以变量切片与依赖图复核。";
+            }
+            codeFindings.append(createResultState(titleText, detailText));
+        }
+
+        // 2. 变量切片
+        const sliceBlock = renderSliceBlock(data?.slice);
+        if (sliceBlock) codeFindings.append(sliceBlock);
+
+        // 3. 依赖图
+        const graphBlock = renderGraphBlock(data?.graph);
+        if (graphBlock) codeFindings.append(graphBlock);
+
+        // 4. 阶段耗时与状态
+        const stageBlock = renderStageBlock(stages);
+        if (stageBlock) codeFindings.append(stageBlock);
+
+        // 5. 建议
         if (data?.recommendation) {
             const recommendation = document.createElement("div");
             recommendation.className = "recommendation";
@@ -584,10 +765,18 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
         codeSubmit.disabled = true;
         codeSubmit.textContent = "扫描中";
         setState(codeState, "state-running", "扫描中");
-        codeFindings.replaceChildren(createLoadingState("正在执行本地代码分析"));
+        codeFindings.replaceChildren(createLoadingState(
+            codeGraphToggle?.checked
+                ? "正在执行规则扫描、变量切片与依赖图生成"
+                : "正在执行规则扫描与变量切片",
+        ));
+        destroyGraphViewer();
 
         try {
-            const data = await api.analyzeCode(content, filename);
+            const data = await api.analyzeCode(content, filename, {
+                includeSlice: codeSliceToggle ? codeSliceToggle.checked : true,
+                includeGraph: codeGraphToggle ? codeGraphToggle.checked : false,
+            });
             renderCodeResult(data);
             setState(codeState, "state-completed", "扫描完成");
             announce("代码扫描完成");
