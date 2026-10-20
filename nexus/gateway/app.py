@@ -823,6 +823,47 @@ def create_app() -> Flask:
                 lines.append(f"  {edge.get('from')}->{edge.get('to')}")
         return "\n".join(lines)
 
+    # 项目内置规则集的读取缓存：按 mtime 失效，改规则文件不用重启服务
+    _rules_cache: Dict[str, Any] = {}
+
+    def _load_cangjie_rules() -> Optional[Dict[str, Any]]:
+        """读取项目自带的仓颉规则集（skills/cangjie_rules.yaml）。
+
+        后端 13 个规则包都不含仓颉规则，`code_scan` 默认的 default-safe
+        只有 C 系模式，所以仓颉命中恒为 0。这里把项目自己的 36 条规则
+        通过 `rules_yaml` 内联传进去。
+
+        路径可用 CANGJIE_RULES_PATH 覆盖；读不到或为空时返回 None，
+        调用方退回内置 default-safe，不会让整个扫描失败。
+        """
+        path = os.environ.get("CANGJIE_RULES_PATH", "").strip() or os.path.join(
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")),
+            "skills", "cangjie_rules.yaml",
+        )
+        try:
+            mtime = os.path.getmtime(path)
+        except OSError:
+            return None
+        if _rules_cache.get("path") == path and _rules_cache.get("mtime") == mtime:
+            return _rules_cache
+        try:
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read()
+        except OSError:
+            return None
+        if not text.strip():
+            return None
+        _rules_cache.update({
+            "path": path,
+            "mtime": mtime,
+            "text": text,
+            "count": text.count("- id: "),
+            "name": os.path.basename(path),
+        })
+        logger.info("[threat/analyze] loaded %s rules from %s",
+                    _rules_cache["count"], path)
+        return _rules_cache
+
     @app.route("/threat/analyze", methods=["POST"])
     def threat_analyze() -> Response:
         payload = request.json or {}
@@ -842,12 +883,38 @@ def create_app() -> Flask:
         stages: List[Dict[str, Any]] = []
         scan: Dict[str, Any] = {}
         stage_start = time.time()
+
+        # 仓颉没有内置规则包，用项目自带的规则集通过 rules_yaml 内联传入。
+        # 其他语言继续走后端内置的 default-safe（那边已有对应语言的模式）。
+        rule_source: Dict[str, Any] = {"type": "builtin", "name": "default-safe"}
+        scan_payload: Dict[str, Any] = {
+            "code": content,
+            # 必须带 filename + lang：只传 code 时后端会存成 source.c，
+            # 仓颉代码按 C 解析会失败（capture_failed）。
+            "filename": _retarget_filename(filename, lang),
+            "lang": lang,
+        }
+        if lang == "cangjie":
+            project_rules = _load_cangjie_rules()
+            if project_rules:
+                scan_payload["rules_yaml"] = project_rules["text"]
+                rule_source = {
+                    "type": "project",
+                    "name": project_rules["name"],
+                    "rule_count": project_rules["count"],
+                }
+
         try:
-            scan = reg.execute_skill("code_scan", {"code": content})
+            scan = reg.execute_skill("code_scan", scan_payload)
         except Exception as exc:
             logger.warning("[threat/analyze] code_scan failed: %s", exc)
             scan = {"status": "error", "message": str(exc)}
         scan_state = _tool_state(scan)
+        used_rules = (
+            f"{rule_source['rule_count']} 条仓颉规则"
+            if rule_source["type"] == "project"
+            else "内置 default-safe"
+        )
 
         # 从 SymPas code_scan 结果中提取 findings（兼容 issues/findings/data.findings 等结构）
         findings: List[Dict[str, Any]] = []
@@ -871,10 +938,10 @@ def create_app() -> Flask:
             "status": scan_state,
             "ms": int((time.time() - stage_start) * 1000),
             "note": (
-                f"命中 {len(findings)} 处"
+                f"{used_rules} · 命中 {len(findings)} 处"
                 if findings
-                else ("规则集未覆盖该语言，命中 0（不等于无风险）"
-                      if lang == "cangjie" else "命中 0 处")
+                else (f"{used_rules} · 命中 0 处（不等于无风险）"
+                      if lang == "cangjie" else f"{used_rules} · 命中 0 处")
             ),
         })
 
@@ -1020,10 +1087,16 @@ def create_app() -> Flask:
                 "请检查 SYMPAS_MCP_URL / SYMPAS_MCP_TOKEN 后重试。"
             )
         elif lang == "cangjie":
-            recommendation = (
-                "规则引擎未覆盖仓颉，命中数为 0 不代表无风险。"
-                "请以变量切片与控制流图为复核依据。"
-            )
+            if rule_source["type"] == "project":
+                recommendation = (
+                    f"已用项目内置的 {rule_source['rule_count']} 条仓颉规则扫描，未命中已知模式。"
+                    "这不代表无风险，请以变量切片与依赖图复核。"
+                )
+            else:
+                recommendation = (
+                    "规则引擎未覆盖仓颉（项目规则集未加载），命中数为 0 不代表无风险。"
+                    "请以变量切片与控制流图为复核依据。"
+                )
         else:
             recommendation = (
                 f"规则扫描已完成，未命中规则，综合风险 {label.upper()}。仍建议结合人工复核。"
@@ -1037,6 +1110,7 @@ def create_app() -> Flask:
             "slice": slice_result,
             "graph": graph_result,
             "stages": stages,
+            "rule_source": rule_source,
             "taint": None,
             "cwe": None,
             "sbfl": {

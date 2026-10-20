@@ -819,9 +819,14 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
                 detailText = data?.recommendation
                     || "规则引擎不可用，本次结果不能作为安全判断依据。";
             } else if (data?.lang === "cangjie") {
-                // 这是最容易误判的一条：仓颉规则命中恒为 0，不能说成“没漏洞”
-                titleText = "规则引擎未覆盖仓颉";
-                detailText = "仓颉代码在规则集下命中恒为 0，这只代表「没扫到」，不代表「没有风险」。请以变量切片与依赖图复核。";
+                // 接入项目规则集后，仓颉不再是"规则集不覆盖"，而是"扫了但没命中"
+                const ruleInfo = data?.rule_source?.type === "project"
+                    ? `已用项目内置的 ${data.rule_source.rule_count} 条仓颉规则扫描`
+                    : "规则引擎未覆盖仓颉（项目规则集未加载）";
+                titleText = data?.rule_source?.type === "project"
+                    ? "未命中仓颉规则"
+                    : "规则引擎未覆盖仓颉";
+                detailText = `${ruleInfo}，未命中已知模式。这只代表「没扫到」，不代表「没有风险」。请以变量切片与依赖图复核。`;
             }
             codeFindings.append(createResultState(titleText, detailText));
         }
