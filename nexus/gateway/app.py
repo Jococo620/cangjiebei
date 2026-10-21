@@ -980,25 +980,67 @@ def create_app() -> Flask:
         # 不设 findings 前置门：仓颉在 code_scan 下规则命中恒为 0，若以此为前提
         # 切片永远不会执行。切片本身只依赖源码，与是否命中规则无关。
         #
-        # 用 sympas_slice_table 而不是 sympas_slice：后者一进入 interprocedural
-        # 模式（有跨函数调用或 Array 参数）就只把切片表写进 raw_output 文本和
-        # artifact，data.backward_slices 留空，我们读到的永远是 empty。
-        # 实测同一个 test.cj：sympas_slice 出 0 条，sympas_slice_table 出 10 条。
-        # direction 只传 Bwd —— slice_table 的 Both 会把两个方向混进
-        # backward_slices 且丢掉 forward_slices。
+        # 两个切片工具实测（同一份代码，只传 code+filename+lang）：
+        #
+        #   代码                        sympas_slice      sympas_slice_table
+        #   C/C++/Java/Python           有结果            恒空（空表，不是失败）
+        #   仓颉 常规代码                有结果            有结果（同一批变量）
+        #   仓颉 含负数字面量            500 capture       有结果
+        #   仓颉 class 内定义方法        500 no source     有结果（通常无可切变量）
+        #
+        # 仓颉那两个失败是后端缺陷，实测定位：
+        #   - 只要出现负数字面量（`-1`、`id2(-5)`、`let x = -1` 都算），
+        #     sympas_slice 就报 capture failed: the analyzer could not build
+        #   - class 里定义方法（`public func` 在 class 体内）报
+        #     no captured source matches the requested input paths
+        # 注意：这两条与"多函数""interprocedural""package 声明"都无关 ——
+        # 之前误判成那些，是因为当时的样例里恰好都有 -10。
+        #
+        # 所以统一走 sympas_slice 打头（它对 C 系是唯一能出结果的），
+        # 只在它失败或没切出东西时回退 sympas_slice_table。
+        # 不按语言硬编码分派：以后加语言不用改这里。
+        #
+        # 另注：slice_table 的设计意图是「给定 criteria（变量@函数）→ 切该变量」，
+        # 不传 criteria 时它对仓颉会回退成"切全部变量"，对 C 系不回退。
+        # 而 code_scan 的 finding 里只有字面文本（extra.metavars 的
+        # abstract_content），拿不到变量名/函数名，拼不出 criteria ——
+        # 所以走不了"先扫再按 finding 精确切"的路子。
         def _run_slice_stage(use_lang: str, use_filename: str) -> Dict[str, Any]:
+            base: Dict[str, Any] = {
+                "code": content,
+                "filename": use_filename,
+                "lang": use_lang,
+            }
             try:
-                resp = reg.execute_skill("sympas_slice_table", {
-                    "code": content,
-                    "filename": use_filename,
-                    "lang": use_lang,
-                    "direction": "Bwd",
-                })
+                resp = reg.execute_skill("sympas_slice", base)
             except Exception as exc:
-                logger.warning("[threat/analyze] slice failed: %s", exc)
+                logger.warning("[threat/analyze] sympas_slice failed: %s", exc)
                 return {"status": "reject", "reason": "tool_error",
                         "message": str(exc), "vars": []}
-            return _extract_sympas_slice(resp)
+
+            result = _extract_sympas_slice(resp)
+            if result["status"] == "pass" and result.get("vars"):
+                return result
+
+            # 主工具没拿到切片（后端编译失败，或者本来就没有可切的变量），
+            # 用切片表兜底。direction 只有 slice_table 认。
+            try:
+                resp2 = reg.execute_skill(
+                    "sympas_slice_table", {**base, "direction": "Bwd"}
+                )
+            except Exception as exc:
+                logger.warning("[threat/analyze] fallback slice_table failed: %s", exc)
+                return result
+
+            result2 = _extract_sympas_slice(resp2)
+            if result2["status"] == "pass" and result2.get("vars"):
+                result2["fallback_from"] = "sympas_slice"
+                logger.info(
+                    "[threat/analyze] slice fell back to slice_table (%d vars)",
+                    len(result2["vars"]),
+                )
+                return result2
+            return result
 
         # 后端同时看 filename 后缀与 lang，两者冲突会失败，回退时一起换
         effective_filename = filename
