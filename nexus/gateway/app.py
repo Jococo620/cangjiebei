@@ -627,12 +627,19 @@ def create_app() -> Flask:
         return _LANG_BY_SUFFIX.get(ext, "c")
 
     def _retarget_filename(filename: str, lang: str) -> str:
-        """把文件名后缀换成目标语言的后缀。
+        """把文件名后缀换成目标语言的后缀，并清掉非 ASCII 字符。
 
         后端会同时看 filename 后缀与 lang 判语言，两者冲突时会失败，
         所以回退重试时必须一起改，只改 lang 不够。
+
+        为什么要清非 ASCII：SymPas 的 /artifacts 路由**不做 URL 解码**。
+        它生成的 svg_url 里中文文件名是 percent-encoded 的（%E6%A0%B7），
+        但查文件时按字面量去找，于是 404 ——实测 curl 直接请求那个 URL
+        也是 404，与我们这层代理无关。换成 ASCII 文件名（source.cj）后
+        URL 里不含 %，图就能正常取到。
         """
         stem = os.path.splitext(str(filename or "sample"))[0] or "sample"
+        stem = re.sub(r"[^A-Za-z0-9_-]+", "_", stem).strip("_") or "source"
         return stem + _EXT_BY_LANG.get(lang, ".txt")
 
     def _tool_state(resp: Any) -> str:
@@ -730,7 +737,11 @@ def create_app() -> Flask:
         """
         if not url:
             return url
-        return "/threat/graph?url=" + quote(url, safe="")
+        # 只编码会破坏 query 解析的两个字符。
+        # 不能用 quote(url, safe="")：SymPas 返回的地址里文件名已经 percent-encoded
+        # （中文文件名如 %E6%A0%B7），再整体 quote 会把 % 编码成 %25，
+        # 变成双重编码，上游按字面量找不到文件 → 502。
+        return "/threat/graph?url=" + url.replace("&", "%26").replace("#", "%23")
 
     def _extract_sympas_graph(resp: Any) -> Dict[str, Any]:
         """从 sympas_dep_graph 返回中提取图结构，并把 SVG 相对路径补成绝对地址。
@@ -893,7 +904,9 @@ def create_app() -> Flask:
         SSRF 防护：只允许代理到当前配置的 SymPas 主机，scheme + netloc 必须
         完全一致，不做任何跳转跟随。
         """
-        raw = unquote(request.args.get("url", "").strip())
+        # 不要在这里再 unquote：Werkzeug 解析 query string 时已经解码过一次，
+        # 二次解码会破坏本身带 % 的地址。
+        raw = request.args.get("url", "").strip()
         base = get_sympas_base_url().rstrip("/")
         if not raw:
             return jsonify({"error": "missing_url"}), 400
@@ -1343,8 +1356,11 @@ def create_app() -> Flask:
                 return result2
             return result
 
-        # 后端同时看 filename 后缀与 lang，两者冲突会失败，回退时一起换
-        effective_filename = filename
+        # 后端同时看 filename 后缀与 lang，两者冲突会失败，回退时一起换。
+        # 这里必须走 _retarget_filename：它除了改后缀，还会把中文等非 ASCII
+        # 字符清掉 —— SymPas 的 /artifacts 路由不解 URL 编码，中文文件名会让
+        # 图产物 404（前端表现就是"图加载失败"）。
+        effective_filename = _retarget_filename(filename, lang)
 
         slice_result: Dict[str, Any]
         if include_slice:
