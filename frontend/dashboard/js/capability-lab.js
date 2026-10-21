@@ -829,7 +829,7 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
             }`;
 
             const list = document.createElement("div");
-            list.className = "finding-list";
+            list.className = "finding-items";
 
             shown.forEach((finding) => {
                 const item = document.createElement("article");

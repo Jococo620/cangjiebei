@@ -773,8 +773,10 @@
     color: var(--text-muted);
 }
 
-/* 命中多时不要一路往下拉：限高 + 内部滚动，滚轮在列表里就够用 */
-.finding-list {
+/* 只有规则命中列表限高滚动。
+   注意不要复用 .finding-list —— 那是 #code-findings 自己的类，
+   套上去会把切片和依赖图一起卷进滚动区。 */
+.finding-items {
     display: grid;
     gap: 8px;
     max-height: 460px;
@@ -783,16 +785,16 @@
     overscroll-behavior: contain;
 }
 
-.finding-list::-webkit-scrollbar {
+.finding-items::-webkit-scrollbar {
     width: 8px;
 }
 
-.finding-list::-webkit-scrollbar-thumb {
+.finding-items::-webkit-scrollbar-thumb {
     background: var(--border-strong);
     border-radius: 4px;
 }
 
-.finding-list::-webkit-scrollbar-thumb:hover {
+.finding-items::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
 }
 
