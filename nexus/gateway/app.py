@@ -692,9 +692,17 @@ def create_app() -> Flask:
             }
 
         data = resp.get("data") if isinstance(resp.get("data"), dict) else {}
+        # 后向切片回答"这个变量来自哪"，前向切片回答"它会影响哪些行"。
+        # 两个字段名不同，取到哪个用哪个。
+        direction = "Bwd"
         raw = data.get("backward_slices")
         if not isinstance(raw, dict) or not raw:
-            return {"status": "empty", "reason": "no_slice", "vars": []}
+            fwd = data.get("forward_slices")
+            if isinstance(fwd, dict) and fwd:
+                raw, direction = fwd, "Fwd"
+        if not isinstance(raw, dict) or not raw:
+            return {"status": "empty", "reason": "no_slice", "vars": [],
+                    "direction": direction}
 
         vars_out: List[Dict[str, Any]] = []
         for key, per_file in raw.items():
@@ -717,12 +725,14 @@ def create_app() -> Flask:
                 })
 
         if not vars_out:
-            return {"status": "empty", "reason": "no_slice", "vars": []}
+            return {"status": "empty", "reason": "no_slice", "vars": [],
+                    "direction": direction}
 
         vars_out.sort(key=lambda item: (-item["line_count"], item["var"]))
         return {
             "status": "pass",
             "reason": None,
+            "direction": direction,
             "engine": data.get("tool") or resp.get("tool"),
             "version": data.get("version"),
             "vars": vars_out,
@@ -937,6 +947,11 @@ def create_app() -> Flask:
         content = payload.get("content")
         filename = payload.get("filename") or "code.py"
         include_slice = bool(payload.get("include_slice", True))
+        # 切片方向：Bwd 看"这个变量来自哪"，Fwd 看"它会影响哪些行"。
+        # 前后向的变量覆盖面不同，让用户按需切换。
+        slice_direction = str(payload.get("slice_direction") or "Bwd").strip()
+        if slice_direction not in ("Bwd", "Fwd"):
+            slice_direction = "Bwd"
         include_graph = bool(payload.get("include_graph", False))
         explicit_lang = bool(str(payload.get("lang") or "").strip())
         lang = str(payload.get("lang") or "").strip() or _infer_lang(filename)
@@ -1319,28 +1334,33 @@ def create_app() -> Flask:
         # 而 code_scan 的 finding 里只有字面文本（extra.metavars 的
         # abstract_content），拿不到变量名/函数名，拼不出 criteria ——
         # 所以走不了"先扫再按 finding 精确切"的路子。
-        def _run_slice_stage(use_lang: str, use_filename: str) -> Dict[str, Any]:
+        def _run_slice_stage(use_lang: str, use_filename: str,
+                             direction: str = "Bwd") -> Dict[str, Any]:
             base: Dict[str, Any] = {
                 "code": content,
                 "filename": use_filename,
                 "lang": use_lang,
             }
-            try:
-                resp = reg.execute_skill("sympas_slice", base)
-            except Exception as exc:
-                logger.warning("[threat/analyze] sympas_slice failed: %s", exc)
-                return {"status": "reject", "reason": "tool_error",
-                        "message": str(exc), "vars": []}
+            # sympas_slice 只产出后向切片，也没有 direction 参数。
+            # 要前向切片就只能直接走 slice_table。
+            if direction != "Fwd":
+                try:
+                    resp = reg.execute_skill("sympas_slice", base)
+                except Exception as exc:
+                    logger.warning("[threat/analyze] sympas_slice failed: %s", exc)
+                    resp = {"status": "error", "message": str(exc)}
 
-            result = _extract_sympas_slice(resp)
-            if result["status"] == "pass" and result.get("vars"):
-                return result
+                result = _extract_sympas_slice(resp)
+                if result["status"] == "pass" and result.get("vars"):
+                    return result
+            else:
+                result = {"status": "empty", "reason": "no_slice", "vars": []}
 
-            # 主工具没拿到切片（后端编译失败，或者本来就没有可切的变量），
+            # 主工具没拿到切片（后端编译失败，或者用户要的是前向），
             # 用切片表兜底。direction 只有 slice_table 认。
             try:
                 resp2 = reg.execute_skill(
-                    "sympas_slice_table", {**base, "direction": "Bwd"}
+                    "sympas_slice_table", {**base, "direction": direction}
                 )
             except Exception as exc:
                 logger.warning("[threat/analyze] fallback slice_table failed: %s", exc)
@@ -1348,10 +1368,11 @@ def create_app() -> Flask:
 
             result2 = _extract_sympas_slice(resp2)
             if result2["status"] == "pass" and result2.get("vars"):
-                result2["fallback_from"] = "sympas_slice"
+                if direction != "Fwd":
+                    result2["fallback_from"] = "sympas_slice"
                 logger.info(
-                    "[threat/analyze] slice fell back to slice_table (%d vars)",
-                    len(result2["vars"]),
+                    "[threat/analyze] slice via slice_table (%s, %d vars)",
+                    direction, len(result2["vars"]),
                 )
                 return result2
             return result
@@ -1365,14 +1386,14 @@ def create_app() -> Flask:
         slice_result: Dict[str, Any]
         if include_slice:
             stage_start = time.time()
-            slice_result = _run_slice_stage(lang, effective_filename)
+            slice_result = _run_slice_stage(lang, effective_filename, slice_direction)
             slice_note = None
             # 前端默认文件名常是 sample.py，按后缀推断会误判成 python。
             # 仓颉是本项目主场景，失败时用 cangjie 重试一次（仅在 lang 非显式指定时）。
             if (slice_result["status"] != "pass"
                     and not explicit_lang and lang != "cangjie"):
                 retry_filename = _retarget_filename(filename, "cangjie")
-                retry = _run_slice_stage("cangjie", retry_filename)
+                retry = _run_slice_stage("cangjie", retry_filename, slice_direction)
                 if retry["status"] == "pass":
                     slice_result = retry
                     slice_note = f"按后缀推断为 {lang} 失败，已回退 cangjie（{retry_filename}）"

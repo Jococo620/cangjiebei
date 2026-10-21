@@ -377,6 +377,7 @@ export class ApiClient {
             filename,
             lang: options.lang || undefined,
             include_slice: options.includeSlice !== false,
+            slice_direction: options.sliceDirection || "Bwd",
             include_graph: options.includeGraph === true,
         }, { timeout: 120000 });
     }

@@ -159,6 +159,7 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
     const codeRisk = query("#code-risk");
     const codeFindings = query("#code-findings");
     const codeSliceToggle = query("#code-slice");
+    const codeSliceDirection = query("#code-slice-direction");
     const codeGraphToggle = query("#code-graph");
     const codeHighlight = query("#code-highlight");
     const codeHighlightCode = codeHighlight ? codeHighlight.querySelector("code") : null;
@@ -684,10 +685,15 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
 
     function renderSliceBlock(slice) {
         if (!slice) return null;
-        const section = createSection("slice-result", "变量后向切片");
+        // 标题跟着实际方向走：前向说的是"影响哪些行"，别和后向混为一谈
+        const isForward = slice.direction === "Fwd";
+        const section = createSection(
+            "slice-result",
+            isForward ? "变量前向切片" : "变量后向切片",
+        );
 
         if (slice.status === "skipped") {
-            appendMutedRow(section, "本次未执行切片（勾选「变量后向切片」后重新扫描）");
+            appendMutedRow(section, "本次未执行切片（勾选「变量切片」后重新扫描）");
             return section;
         }
         if (slice.status !== "pass") {
@@ -968,6 +974,7 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
         try {
             const data = await api.analyzeCode(content, filename, {
                 includeSlice: codeSliceToggle ? codeSliceToggle.checked : true,
+                sliceDirection: codeSliceDirection ? codeSliceDirection.value : "Bwd",
                 includeGraph: codeGraphToggle ? codeGraphToggle.checked : false,
             });
             renderCodeResult(data);

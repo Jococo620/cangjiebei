@@ -1335,10 +1335,17 @@
                                     <label class="code-option">
                                         <input id="code-slice" type="checkbox" checked>
                                         <span>
-                                            变量后向切片
-                                            <em>列出每个变量依赖的代码行，用于人工复核数据流</em>
+                                            变量切片
+                                            <em>后向看"这个变量来自哪"，前向看"它会影响哪些行"</em>
                                         </span>
                                     </label>
+                                    <div class="code-option-sub">
+                                        <label for="code-slice-direction">切片方向</label>
+                                        <select id="code-slice-direction">
+                                            <option value="Bwd" selected>后向（依赖从哪来）</option>
+                                            <option value="Fwd">前向（影响哪些行）</option>
+                                        </select>
+                                    </div>
                                     <label class="code-option">
                                         <input id="code-graph" type="checkbox">
                                         <span>

@@ -904,6 +904,29 @@
     font-style: normal;
 }
 
+/* 切片方向选择：缩进一级，表示从属于上面的"变量切片"开关 */
+.code-option-sub {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: -4px 0 8px 26px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.code-option-sub label {
+    white-space: nowrap;
+}
+
+.code-option-sub select {
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
+}
+
 .code-meta {
     color: var(--text-muted);
     font-family: var(--font-mono);
