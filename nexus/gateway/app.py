@@ -7,6 +7,9 @@ import time
 import uuid
 from collections import deque
 from typing import Any, Callable, Dict, List, Optional
+from urllib.parse import quote, unquote, urlsplit
+
+import requests
 
 from flask import Flask, Response, jsonify, request, stream_with_context
 from flask_cors import CORS
@@ -718,6 +721,17 @@ def create_app() -> Flask:
             "vars": vars_out,
         }
 
+    def _proxy_svg(url: Optional[str]) -> Optional[str]:
+        """把 SymPas 的绝对 SVG 地址换成同源代理路径。
+
+        浏览器直连 SymPas 的 47.94.83.64:6240 会受本机代理/网络策略影响 ——
+        表现就是"在 MCP 控制台能看图，在我们的页面里却报加载失败"。
+        改成走本服务的 /threat/graph 之后，前端只跟 127.0.0.1:7800 打交道。
+        """
+        if not url:
+            return url
+        return "/threat/graph?url=" + quote(url, safe="")
+
     def _extract_sympas_graph(resp: Any) -> Dict[str, Any]:
         """从 sympas_dep_graph 返回中提取图结构，并把 SVG 相对路径补成绝对地址。
 
@@ -776,7 +790,9 @@ def create_app() -> Flask:
                 "truncated": (
                     len(nodes) > MAX_GRAPH_NODES or len(edges) > MAX_GRAPH_EDGES
                 ),
-                "svg_url": artifact_svg.get(str(graph_type)) or fallback_svg or None,
+                "svg_url": _proxy_svg(
+                    artifact_svg.get(str(graph_type)) or fallback_svg
+                ),
             })
 
         if not graphs:
@@ -864,6 +880,43 @@ def create_app() -> Flask:
         logger.info("[threat/analyze] loaded %s rules from %s",
                     _rules_cache["count"], path)
         return _rules_cache
+
+    @app.route("/threat/graph")
+    def threat_graph():
+        """代理 SymPas 的 SVG 产物，让浏览器只跟本服务同源通信。
+
+        为什么要代理：SymPas 在 47.94.83.64:6240，前端页面在 127.0.0.1:7800。
+        `<img>` 本来不受跨域限制，但只要本机挂了 HTTP 代理，浏览器对
+        47.94.83.64 的请求就可能被代理拦掉 —— 表现是 MCP 控制台能看、我们的
+        页面报"图加载失败"。同源代理能绕开这一层。
+
+        SSRF 防护：只允许代理到当前配置的 SymPas 主机，scheme + netloc 必须
+        完全一致，不做任何跳转跟随。
+        """
+        raw = unquote(request.args.get("url", "").strip())
+        base = get_sympas_base_url().rstrip("/")
+        if not raw:
+            return jsonify({"error": "missing_url"}), 400
+
+        base_parts = urlsplit(base)
+        target = urlsplit(raw)
+        if (target.scheme, target.netloc) != (base_parts.scheme, base_parts.netloc):
+            logger.warning("[threat/graph] rejected url: %s", raw[:120])
+            return jsonify({"error": "url_not_allowed"}), 400
+
+        try:
+            upstream = requests.get(raw, timeout=20, allow_redirects=False)
+        except Exception as exc:
+            logger.warning("[threat/graph] fetch failed: %s", exc)
+            return jsonify({"error": "upstream_unreachable",
+                            "message": str(exc)}), 502
+        if upstream.status_code != 200:
+            return jsonify({"error": "upstream_error",
+                            "status": upstream.status_code}), 502
+
+        resp = Response(upstream.content, mimetype="image/svg+xml")
+        resp.headers["Cache-Control"] = "private, max-age=300"
+        return resp
 
     @app.route("/threat/analyze", methods=["POST"])
     def threat_analyze() -> Response:
