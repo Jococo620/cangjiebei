@@ -36,7 +36,7 @@ def test_llm_provider_env_lowercased(monkeypatch):
 
 
 def test_sympas_base_url_default():
-    assert config.get_sympas_base_url() == "http://YOUR_SYMPAS_IP:6239"
+    assert config.get_sympas_base_url() == "http://YOUR_SYMPAS_IP:6240"
 
 
 def test_sympas_base_url_explicit_env(monkeypatch):
@@ -76,7 +76,7 @@ def test_compliance_mode_on(monkeypatch):
 def test_resolve_endpoint_placeholder():
     assert (
         config.resolve_sympas_endpoint("{{SYMPAS_MCP_URL}}/tools/x")
-        == "http://YOUR_SYMPAS_IP:6239/tools/x"
+        == "http://YOUR_SYMPAS_IP:6240/tools/x"
     )
 
 

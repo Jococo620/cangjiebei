@@ -4,9 +4,15 @@ from typing import Dict, Optional
 
 DEFAULT_SYMPAS_SCHEME = "http"
 # SymPas（本组自研静态分析工具）MCP 默认地址；可通过 SYMPAS_MCP_URL 覆盖。
-# 内网：http://YOUR_SYMPAS_INTERNAL_IP:6239  外网：http://YOUR_SYMPAS_IP:6239
+# 内网：http://YOUR_SYMPAS_INTERNAL_IP:6240  外网：http://YOUR_SYMPAS_IP:6240
+#
+# 端口说明：6239 和 6240 是两个不同的后端实例，返回结构不一样
+#   :6239  sympas_slice 产出 data.taint.taint_traces（source→sink 污点路径）
+#   :6240  sympas_slice 产出 data.backward_slices（变量→依赖行）
+# `_extract_sympas_slice` 读的是 backward_slices，所以默认连 6240；
+# 连 6239 会永远解析不到切片。
 DEFAULT_SYMPAS_HOST = "YOUR_SYMPAS_IP"
-DEFAULT_SYMPAS_PORT = "6239"
+DEFAULT_SYMPAS_PORT = "6240"
 DEFAULT_SYMPAS_TOKEN = "your-sympas-token"
 DEFAULT_SYMPAS_TOKEN_FILE = Path.home() / ".config" / "sympas" / "local_token"
 
