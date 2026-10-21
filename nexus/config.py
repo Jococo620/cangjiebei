@@ -58,7 +58,9 @@ def get_sympas_auth_headers(extra_headers: Optional[Dict[str, str]] = None) -> D
     headers = dict(extra_headers or {})
     token = get_sympas_token()
     if token:
-        headers["Authorization"] = f"Bearer {token}"
+        # 6240 用 X-API-Key 鉴权（发 Bearer 会被拒 "missing or invalid API key"）；
+        # 6239 对鉴权不校验，X-API-Key 同样可用。统一用 X-API-Key 两端口兼容。
+        headers["X-API-Key"] = token
     return headers
 
 

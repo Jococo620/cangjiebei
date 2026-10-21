@@ -61,7 +61,8 @@ def test_sympas_token_env(monkeypatch):
 
 def test_auth_headers():
     headers = config.get_sympas_auth_headers()
-    assert headers["Authorization"] == "Bearer your-sympas-token"
+    assert headers["X-API-Key"] == "your-sympas-token"
+    assert "Authorization" not in headers
 
 
 def test_compliance_mode_off_by_default():
