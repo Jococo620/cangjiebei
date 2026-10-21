@@ -1569,8 +1569,8 @@ def create_app() -> Flask:
                 node_id=node.get("node_id"),
             )
 
-        summary = planner.summary()
-        return jsonify({"status": "success", "nodes": summary})
+        summary = planner.to_graph()
+        return jsonify({"status": "success", "graph": summary})
 
     @app.route("/dag/execute", methods=["POST"])
     def dag_execute() -> Response:
@@ -1588,13 +1588,13 @@ def create_app() -> Flask:
                 node_id=node.get("node_id"),
             )
 
-        results = planner.execute_sync()
-        summary = planner.summary()
+        results = planner.execute()
+        summary = planner.to_graph()
 
         return jsonify({
             "status": "completed",
             "results": results,
-            "summary": summary,
+            "graph": summary,
         })
 
     @app.route("/sse/telemetry", methods=["GET"])
