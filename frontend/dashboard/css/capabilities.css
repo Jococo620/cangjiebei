@@ -766,18 +766,48 @@
     gap: 6px;
 }
 
+.finding-list-head {
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+/* 命中多时不要一路往下拉：限高 + 内部滚动，滚轮在列表里就够用 */
+.finding-list {
+    display: grid;
+    gap: 8px;
+    max-height: 460px;
+    overflow-y: auto;
+    padding-right: 8px;
+    overscroll-behavior: contain;
+}
+
+.finding-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.finding-list::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 4px;
+}
+
+.finding-list::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
 .finding-item {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 10px;
-    padding: 10px 14px;
+    padding: 9px 12px;
     border: 1px solid var(--border);
     border-radius: var(--radius-control);
     background: var(--surface);
 }
 
 .finding-item h4 {
-    font-size: 15px;
+    font-size: 14px;
 }
 
 .finding-item p {

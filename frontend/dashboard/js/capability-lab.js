@@ -816,7 +816,22 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
 
         // 1. 规则命中。没有命中不是提前结束：切片与图必须照常展示。
         if (ranking.length) {
-            ranking.slice(0, 50).forEach((finding) => {
+            // 高危排前面，免得要滚到底才看到真正要紧的
+            const ordered = [...ranking].sort(
+                (a, b) => severityScore(b) - severityScore(a),
+            );
+            const shown = ordered.slice(0, 50);
+
+            const listHead = document.createElement("div");
+            listHead.className = "finding-list-head";
+            listHead.textContent = `规则命中 ${ranking.length} 条${
+                ranking.length > shown.length ? `（按严重度排序，显示前 ${shown.length}）` : ""
+            }`;
+
+            const list = document.createElement("div");
+            list.className = "finding-list";
+
+            shown.forEach((finding) => {
                 const item = document.createElement("article");
                 item.className = "finding-item";
                 const body = document.createElement("div");
@@ -880,8 +895,10 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
                 }
 
                 item.append(body, level);
-                codeFindings.append(item);
+                list.append(item);
             });
+
+            codeFindings.append(listHead, list);
         } else {
             const scanStage = stages.find((stage) => stage?.name === "code_scan");
             let titleText = "规则未命中";
