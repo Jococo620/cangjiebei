@@ -650,6 +650,26 @@
     border-color: var(--border-strong);
 }
 
+/* 告警里附带的"变量"与"切片行"：直接给出要复核的位置，比抽象标签实用 */
+.finding-vars {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text);
+}
+
+.finding-slice {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    /* 行号列表可能很长，超出就省略，hover 看全量 */
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+}
+
 @media (prefers-color-scheme: dark) {
     .origin-param-direct { color: #ff9a93; background: rgb(255 154 147 / 0.12); }
     .origin-param-via { color: #f0c674; background: rgb(240 198 116 / 0.12); }

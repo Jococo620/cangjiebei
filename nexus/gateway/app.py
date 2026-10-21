@@ -1068,18 +1068,52 @@ def create_app() -> Flask:
                     enclosing, key=lambda f: f["end"] - f["start"]
                 ) if enclosing else None
                 if not owner:
-                    result[lineno] = {
-                        "origin": "unknown",
-                        "detail": "不在任何函数体内（顶层声明）",
-                        "chain": [],
-                    }
+                    # 顶层声明（foreign func、全局 let 等）没有"数据来源"可言，
+                    # 标一个"未追到上游"纯属噪音，直接不标注。
                     continue
 
                 params = set(owner["params"])
+                # 该函数内声明的局部变量，用来把"这行引用了哪些变量"限定在变量上，
+                # 避免把类型名、方法名也算进去
+                func_locals = set()
+                for cursor in range(owner["start"] - 1,
+                                    min(owner["end"], len(lines))):
+                    decl = re.match(
+                        r"\s*(?:public\s+|private\s+|protected\s+)?"
+                        r"(?:let|var)\s+([A-Za-z_]\w*)",
+                        _strip_literals(lines[cursor]),
+                    )
+                    if decl:
+                        func_locals.add(decl.group(1))
+                line_vars = sorted(
+                    _idents(lines[lineno - 1]) & (params | func_locals)
+                )
+                # 每个变量在哪定义：形参直接标出来，局部变量找到声明行。
+                # 切片阶段对 class 方法会回退、覆盖也不全，不如自己给定位准确。
+                var_defs = []
+                for name in line_vars:
+                    if name in params:
+                        var_defs.append({"var": name, "kind": "param"})
+                        continue
+                    decl_line = None
+                    for cursor in range(owner["start"] - 1,
+                                        min(owner["end"], len(lines))):
+                        if re.search(
+                            rf"\b(?:let|var)\s+{re.escape(name)}\b",
+                            _strip_literals(lines[cursor]),
+                        ):
+                            decl_line = cursor + 1
+                            break
+                    var_defs.append(
+                        {"var": name, "kind": "local", "line": decl_line}
+                    )
                 direct = _idents(lines[lineno - 1]) & params
                 if direct:
                     result[lineno] = {
                         "origin": "param-direct",
+                        "func": owner["name"],
+                        "vars": line_vars,
+                        "var_defs": var_defs,
                         "detail": (
                             f"{owner['name']} 的形参 "
                             f"{', '.join(sorted(direct))} 直接进入该调用"
@@ -1110,6 +1144,9 @@ def create_app() -> Flask:
                 if via:
                     result[lineno] = {
                         "origin": "param-via",
+                        "func": owner["name"],
+                        "vars": line_vars,
+                        "var_defs": var_defs,
                         "detail": (
                             f"{via[0]}（第 {via[1]} 行赋值）来自形参，"
                             f"再传进该调用"
@@ -1119,6 +1156,9 @@ def create_app() -> Flask:
                 else:
                     result[lineno] = {
                         "origin": "internal",
+                        "func": owner["name"],
+                        "vars": line_vars,
+                        "var_defs": var_defs,
                         "detail": "该行及其一跳上游都没有引用函数形参",
                         "chain": [lineno],
                     }
@@ -1282,6 +1322,39 @@ def create_app() -> Flask:
             # 静默省略会让人以为这一步不存在。
             stages.append({"name": "slice", "status": "skipped",
                            "ms": 0, "note": "未请求"})
+
+        # ---- 把变量切片挂到对应的告警上 ----
+        # 切片阶段排在污点判定之后（那边只依赖源码），所以关联放在这里做。
+        # 告警条目里带上"这个变量依赖哪几行"，比一个"未追到上游"的标签有用得多。
+        if ranking and (slice_result.get("vars") or []):
+            by_func: Dict[str, List[Dict[str, Any]]] = {}
+            for var_item in slice_result["vars"]:
+                # 切片那边的函数名带类前缀（UserService.copyInput），
+                # 而这边解析出来的是短名（copyInput），统一按短名建索引
+                short = str(var_item.get("func") or "").rsplit(".", 1)[-1]
+                by_func.setdefault(short, []).append(var_item)
+            for entry in ranking:
+                origin = entry.get("origin")
+                if not isinstance(origin, dict):
+                    continue
+                owner = str(origin.get("func") or "")
+                wanted = set(origin.get("vars") or [])
+                if not wanted:
+                    continue
+                matched = [
+                    v for v in by_func.get(owner, [])
+                    if v.get("var") in wanted
+                ]
+                if matched:
+                    origin["slices"] = [
+                        {
+                            "var": v.get("var"),
+                            "lines": v.get("lines") or [],
+                            "line_count": v.get("line_count")
+                                           or len(v.get("lines") or []),
+                        }
+                        for v in matched[:3]
+                    ]
 
         # ---- 阶段 3：依赖图 ----
         graph_result: Dict[str, Any]

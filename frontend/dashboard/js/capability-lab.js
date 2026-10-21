@@ -808,14 +808,13 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
                 level.textContent = `${severityLabel(score)} ${score || ""}`.trim();
                 body.append(title, detail);
 
-                // 数据来源标签：只对 injection / memory-safety / info-leak 这类
-                // 与数据流有关的规则才有值（后端按 category 过滤过）
+                // 数据来源与涉及变量：只对 injection / memory-safety / info-leak
+                // 这类与数据流有关的规则才有值（后端按 category 过滤过）
                 const originKind = finding.origin?.origin;
                 const originLabels = {
                     "param-direct": "形参直达",
                     "param-via": "经变量传入",
                     internal: "仅内部赋值",
-                    unknown: "未追到上游",
                 };
                 const originLabel = originLabels[originKind];
                 if (originLabel) {
@@ -825,6 +824,35 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
                     badge.textContent = originLabel;
                     badge.title = finding.origin?.detail || "";
                     detail.append(badge);
+                }
+
+                // 涉及的变量 + 它们在哪定义。直接给出"第几行的什么变量"，
+                // 比一个抽象的"来源"标签更值得看。
+                const defs = finding.origin?.var_defs || [];
+                if (defs.length) {
+                    const varNode = document.createElement("span");
+                    varNode.className = "finding-vars";
+                    varNode.textContent = `变量 ${
+                        defs
+                            .map((d) => (d.kind === "param"
+                                ? `${d.var}（形参）`
+                                : `${d.var}（第 ${d.line ?? "?"} 行）`))
+                            .join("、")
+                    }`;
+                    detail.append(" · ", varNode);
+                }
+                // 切片若覆盖到该变量，补一行"依赖哪些行"
+                const slices = finding.origin?.slices || [];
+                if (slices.length) {
+                    const picked = slices[0];
+                    const lines = picked.lines || [];
+                    const sliceNode = document.createElement("span");
+                    sliceNode.className = "finding-slice";
+                    sliceNode.textContent = ` · ${picked.var} 依赖 ${picked.line_count} 行：${
+                        lines.slice(0, 8).join(", ")
+                    }${lines.length > 8 ? " …" : ""}`;
+                    sliceNode.title = lines.join(", ");
+                    detail.append(sliceNode);
                 }
 
                 item.append(body, level);
