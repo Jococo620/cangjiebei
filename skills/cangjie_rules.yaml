@@ -1,0 +1,588 @@
+# 仓颉安全规则集（Semgrep 格式，通过 code_scan 的 rules_yaml 内联传入）
+#
+# 背景
+#   后端 13 个规则包都没有仓颉规则，`code_scan` 默认的 default-safe 只有 C 系模式，
+#   仓颉代码命中恒为 0。但 `code_scan` 支持 `rules_yaml` 参数，可以内联自定义规则。
+#
+# 能力边界（全部实测）
+#   - `languages: [cangjie]` 会被识别，规则不会漏到其它语言（同规则打 C 代码命中 0）
+#   - 只能用 `pattern-regex`：结构化 pattern（$X、if(...){...}）、pattern-inside、
+#     taint（pattern-sources/sinks）一律 Parse_error
+#   - `patterns`(AND，同一行内) / `pattern-either`(OR) / `pattern-not-regex`(NOT) 可用
+#   - 正则必须覆盖整行：`^ ... .*?关键字.*`。只匹配行中间一段不会报，
+#     而且不报错、静默失效 —— 这是最容易踩的坑
+#   - 源码有语法错误会让整个扫描 HTTP 500（semgrep 报 PartialParsing）
+#   - 按文本出现次数报，一行里出现多次会报多条
+#
+# 每条规则统一用行首断言 `(?m)^(?![ \t]*(//|\*|/\*))` 排除注释行。
+# 字符串字面量里的关键字仍会误报，这是 pattern-regex 的固有限制。
+
+rules:
+  # ==================== 一、内存安全 ====================
+
+  - id: cangjie-unsafe-block
+    languages: [cangjie]
+    message: unsafe 块绕过编译器的安全检查，内存边界需人工复核
+    severity: ERROR
+    metadata:
+      cwe: CWE-787
+      category: memory-safety
+      confidence: HIGH
+    pattern-regex: |
+      (?m)^(?![ \t]*(//|\*|/\*)).*?\bunsafe\s*\{.*
+
+  - id: cangjie-cpointer
+    languages: [cangjie]
+    message: 使用裸指针类型 CPointer，需确认来源可信且长度可控
+    severity: WARNING
+    metadata:
+      cwe: CWE-787
+      category: memory-safety
+      confidence: MEDIUM
+    pattern-regex: |
+      (?m)^(?![ \t]*(//|\*|/\*)).*?\bCPointer\s*<.*
+
+  - id: cangjie-raw-memory-api
+    languages: [cangjie]
+    message: 直接取裸地址（asRaw / addressOf），可能破坏内存安全
+    severity: WARNING
+    metadata:
+      cwe: CWE-787
+      category: memory-safety
+      confidence: MEDIUM
+    pattern-regex: |
+      (?m)^(?![ \t]*(//|\*|/\*)).*?\b(asRaw|addressOf)\s*\(.*
+
+  - id: cangjie-unsafe-c-string
+    languages: [cangjie]
+    message: 使用 CString / asCPointer，注意 NUL 截断与缓冲区越界
+    severity: WARNING
+    metadata:
+      cwe: CWE-170
+      category: memory-safety
+      confidence: MEDIUM
+    pattern-regex: |
+      (?m)^(?![ \t]*(//|\*|/\*)).*?\b(CString|asCPointer)\b.*
+
+  - id: cangjie-fixed-buffer
+    languages: [cangjie]
+    message: 分配固定大小的字节缓冲，写入前需校验长度
+    severity: INFO
+    metadata:
+      cwe: CWE-787
+      category: memory-safety
+      confidence: LOW
+    pattern-regex: |
+      (?m)^(?![ \t]*(//|\*|/\*)).*?\bArray\s*<\s*UInt8\s*>\s*\(\s*\d+.*$
+
+  - id: cangjie-unsafe-copy-fn
+    languages: [cangjie]
+    message: 调用不校验长度的内存拷贝函数，存在溢出风险
+    severity: ERROR
+    metadata:
+      cwe: CWE-120
+      category: memory-safety
+      confidence: HIGH
+      note: 排除 foreign func 声明行，声明本身不是调用
+    patterns:
+      - pattern-regex: |
+          (?m)^(?![ \t]*(//|\*|/\*)).*?\b(memcpy|memmove|strcpy|strcat|sprintf|vsprintf)\s*\(.*
+      - pattern-not-regex: |
+          (?m)^.*?\bforeign\s+func\b.*
+
+  # ==================== 二、C 互操作 ====================
+
+  - id: cangjie-foreign-func
+    languages: [cangjie]
+    message: 声明 C 互操作函数，参数长度与返回值需校验
+    severity: WARNING
+    metadata:
+      cwe: CWE-1112
+      category: ffi
+      confidence: MEDIUM
+    pattern-regex: |
+      (?m)^(?![ \t]*(//|\*|/\*)).*?\bforeign\s+func\b.*
+
+  - id: cangjie-ffi-attribute
+    languages: [cangjie]
+    message: 使用 FFI 相关修饰，跨语言边界的数据需复核
+    severity: INFO
+    metadata:
+      cwe: CWE-1112
+      category: ffi
+      confidence: LOW
+    pattern-regex: |
+      (?m)^(?![ \t]*(//|\*|/\*)).*?@\s*(C|Foreign|FFI|Interop)\b.*
+
+  - id: cangjie-manual-memory
+    languages: [cangjie]
+    message: 手动申请/释放堆内存，注意配对与失败分支
+    severity: WARNING
+    metadata:
+      cwe: CWE-404
+      category: ffi
+      confidence: MEDIUM
+    pattern-regex: |
+      (?m)^(?![ \t]*(//|\*|/\*)).*?\b(malloc|calloc|realloc|free)\s*\(.*
+
+  # ==================== 三、凭据与密钥 ====================
+
+  - id: cangjie-hardcoded-credential
+    languages: [cangjie]
+    message: 硬编码凭据，应改用配置或密钥管理
+    severity: ERROR
+    metadata:
+      cwe: CWE-798
+      category: secrets
+      confidence: HIGH
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(api_?key|apikey|secret|password|passwd|token|credential)\b\s*(:\s*[A-Za-z0-9_<>, ]+)?\s*=\s*"[^"]{6,}".*
+
+  - id: cangjie-weak-hash
+    languages: [cangjie]
+    message: 使用弱哈希算法（MD5 / SHA1），口令与签名场景应换 SHA-256 及以上
+    severity: WARNING
+    metadata:
+      cwe: CWE-327
+      category: crypto
+      confidence: HIGH
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(MD5|SHA1)\b.*
+
+  - id: cangjie-hardcoded-iv
+    languages: [cangjie]
+    message: 硬编码 IV / salt / nonce，加密强度会被削弱
+    severity: WARNING
+    metadata:
+      cwe: CWE-329
+      category: crypto
+      confidence: MEDIUM
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(iv|salt|nonce)\b\s*(:\s*\w+)?\s*=\s*"[^"]{4,}".*
+
+  - id: cangjie-private-key
+    languages: [cangjie]
+    message: 源码中内联私钥，应立即吊销并移入密钥管理
+    severity: ERROR
+    metadata:
+      cwe: CWE-321
+      category: secrets
+      confidence: HIGH
+    pattern-regex: |
+      (?m)^(?![ \t]*(//|\*|/\*)).*?-----BEGIN\s+(RSA\s+|EC\s+|OPENSSH\s+)?PRIVATE KEY-----.*
+
+  - id: cangjie-jwt-weak-secret
+    languages: [cangjie]
+    message: JWT 签名密钥硬编码或过短，可被爆破伪造
+    severity: ERROR
+    metadata:
+      cwe: CWE-798
+      category: secrets
+      confidence: MEDIUM
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\bjwt[_-]?(secret|key|token)\b\s*(:\s*\w+)?\s*=\s*"[^"]{0,16}".*
+
+  # ==================== 四、密码学误用 ====================
+
+  - id: cangjie-tls-verify-disabled
+    languages: [cangjie]
+    message: 关闭了 TLS 证书校验，存在中间人攻击风险
+    severity: ERROR
+    metadata:
+      cwe: CWE-295
+      category: crypto
+      confidence: HIGH
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(verify|check)[A-Za-z]*(ssl|tls|cert)[A-Za-z]*\s*[=:]\s*false.*
+
+  - id: cangjie-ecb-mode
+    languages: [cangjie]
+    message: 使用 ECB 分组模式，相同明文块会产生相同密文
+    severity: WARNING
+    metadata:
+      cwe: CWE-327
+      category: crypto
+      confidence: HIGH
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\bECB\b.*
+
+  - id: cangjie-hardcoded-crypto-key
+    languages: [cangjie]
+    message: 加密密钥硬编码在源码中
+    severity: ERROR
+    metadata:
+      cwe: CWE-321
+      category: crypto
+      confidence: MEDIUM
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(aes|des|sm4|rc4)[_-]?(key|secret)\b\s*(:\s*\w+)?\s*=\s*"[^"]{4,}".*
+
+  # ==================== 五、注入 ====================
+
+  - id: cangjie-command-exec
+    languages: [cangjie]
+    message: 执行外部命令，需确认参数不可被外部控制
+    severity: ERROR
+    metadata:
+      cwe: CWE-78
+      category: injection
+      confidence: HIGH
+      note: std.process 的真实 API 是 execute / executeWithOutput / launch
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(execute|executeWithOutput|launch|findProcess|Process|SubProcess|system|popen|execve)\s*\(.*
+
+  - id: cangjie-sql-string-concat
+    languages: [cangjie]
+    message: SQL 由字符串拼接，存在注入风险，应使用参数化查询
+    severity: ERROR
+    metadata:
+      cwe: CWE-89
+      category: injection
+      confidence: HIGH
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?"\s*(select|insert|update|delete)\b[^"]*"\s*\+.*
+
+  - id: cangjie-path-traversal
+    languages: [cangjie]
+    message: 文件路径由字符串拼接而成，可能被 ../ 穿越
+    severity: WARNING
+    metadata:
+      cwe: CWE-22
+      category: injection
+      confidence: MEDIUM
+    pattern-regex: |
+      (?m)^(?![ \t]*(//|\*|/\*)).*?\b(File|Path|FileStream|open)\s*\([^)\n]*\+.*
+
+  - id: cangjie-dynamic-eval
+    languages: [cangjie]
+    message: 动态执行代码/表达式，若来源可控等同远程代码执行
+    severity: ERROR
+    metadata:
+      cwe: CWE-94
+      category: injection
+      confidence: MEDIUM
+      note: 不含 execute，命令执行归 cangjie-command-exec，避免同一行报两条
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(eval|exec|compile|invoke)\s*\(.*
+
+  - id: cangjie-open-redirect
+    languages: [cangjie]
+    message: 跳转目标未校验，存在开放重定向
+    severity: WARNING
+    metadata:
+      cwe: CWE-601
+      category: injection
+      confidence: LOW
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(redirect|forward|setLocation)\s*\(.*(http|url|target).*
+
+  - id: cangjie-ldap-xpath
+    languages: [cangjie]
+    message: 查询语句由字符串拼接，存在 LDAP/XPath 注入
+    severity: WARNING
+    metadata:
+      cwe: CWE-643
+      category: injection
+      confidence: MEDIUM
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?"\s*\(?\s*(uid|cn|objectClass)\s*=.*"\s*\+.*
+
+  # ==================== 六、信息泄露 ====================
+
+  - id: cangjie-log-sensitive
+    languages: [cangjie]
+    message: 日志中输出敏感字段
+    severity: WARNING
+    metadata:
+      cwe: CWE-532
+      category: info-leak
+      confidence: MEDIUM
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(println|print|log)\s*\([^)\n]*\b(password|passwd|token|secret|apiKey|credential)\b.*
+
+  - id: cangjie-stacktrace-leak
+    languages: [cangjie]
+    message: 将异常堆栈直接返回或打印，可能泄露内部路径
+    severity: INFO
+    metadata:
+      cwe: CWE-209
+      category: info-leak
+      confidence: LOW
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(stackTrace|printStackTrace|getMessage)\b.*
+
+  - id: cangjie-hardcoded-internal-ip
+    languages: [cangjie]
+    message: 硬编码内网地址，泄露网络拓扑且不利于迁移
+    severity: INFO
+    metadata:
+      cwe: CWE-200
+      category: info-leak
+      confidence: LOW
+    pattern-regex: |
+      (?m)^(?![ \t]*(//|\*|/\*)).*?"(?:10\.|172\.(?:1[6-9]|2\d|3[01])\.|192\.168\.)\d{1,3}\.\d{1,3}".*
+
+  - id: cangjie-security-todo
+    languages: [cangjie]
+    message: 注释中遗留安全相关待办，提交前需确认
+    severity: INFO
+    metadata:
+      cwe: CWE-1059
+      category: quality
+      confidence: LOW
+    pattern-regex: |
+      (?im)^[ \t]*(//|\*|/\*).{0,60}(TODO|FIXME|XXX).{0,60}(权限|鉴权|校验|注入|加密|安全|auth|security).*
+
+  # ==================== 七、文件与权限 ====================
+
+  - id: cangjie-world-writable-perm
+    languages: [cangjie]
+    message: 文件权限设置过宽（0o777 / 0o666），任何用户可读写
+    severity: WARNING
+    metadata:
+      cwe: CWE-732
+      category: permission
+      confidence: HIGH
+    pattern-regex: |
+      (?m)^(?![ \t]*(//|\*|/\*)).*?\b(0o777|0o666|0777|0666)\b.*
+
+  - id: cangjie-insecure-tempfile
+    languages: [cangjie]
+    message: 使用可预测的临时文件名，存在符号链接攻击风险
+    severity: WARNING
+    metadata:
+      cwe: CWE-377
+      category: permission
+      confidence: MEDIUM
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?"\s*/tmp/[A-Za-z0-9_-]+\s*".*
+
+  - id: cangjie-unsafe-file-delete
+    languages: [cangjie]
+    message: 删除操作的目标路径来自变量，需确认不可被外部控制
+    severity: WARNING
+    metadata:
+      cwe: CWE-22
+      category: permission
+      confidence: LOW
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(remove|delete|unlink|removeDir)\s*\(.*[a-z_]\w*\s*\).*
+
+  # ==================== 八、健壮性 ====================
+
+  - id: cangjie-empty-catch
+    languages: [cangjie]
+    message: 空的 catch 块吞掉了异常，故障会被静默忽略
+    severity: WARNING
+    metadata:
+      cwe: CWE-390
+      category: robustness
+      confidence: MEDIUM
+    pattern-regex: |
+      (?m)^(?![ \t]*(//|\*|/\*)).*?catch\s*\([^)\n]*\)\s*\{\s*\}\s*$
+
+  - id: cangjie-infinite-loop
+    languages: [cangjie]
+    message: 无条件死循环，需确认有内部退出路径
+    severity: INFO
+    metadata:
+      cwe: CWE-835
+      category: robustness
+      confidence: LOW
+    pattern-regex: |
+      (?m)^(?![ \t]*(//|\*|/\*)).*?\bwhile\s*\(\s*(true|True)\s*\).*
+
+  - id: cangjie-timeout-zero
+    languages: [cangjie]
+    message: 超时时间设为 0 或负数，可能变成无限等待
+    severity: WARNING
+    metadata:
+      cwe: CWE-400
+      category: robustness
+      confidence: MEDIUM
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\btimeout\w*\s*[=:]\s*(-1|0)\b.*
+
+  - id: cangjie-debug-backdoor
+    languages: [cangjie]
+    message: 代码中存在调试开关，上线前需确认不会误开
+    severity: WARNING
+    metadata:
+      cwe: CWE-489
+      category: robustness
+      confidence: MEDIUM
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(debug|test)[_-]?mode\b\s*[=:]\s*true.*
+
+  # ==================== 九、反序列化与反射 ====================
+
+  - id: cangjie-deserialize-untrusted
+    languages: [cangjie]
+    message: 反序列化外部数据，需确认类型白名单与来源可信
+    severity: WARNING
+    metadata:
+      cwe: CWE-502
+      category: deserialization
+      confidence: MEDIUM
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(deserialize|unmarshal|fromJson)\s*\(.*
+
+  - id: cangjie-reflect-invoke
+    languages: [cangjie]
+    message: 反射调用，方法名若来自外部输入可被任意调用
+    severity: WARNING
+    metadata:
+      cwe: CWE-470
+      category: deserialization
+      confidence: LOW
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(getMethod|getDeclaredMethod|newInstance|invokeMethod)\s*\(.*
+
+  # ==================== 十、资源生命周期 ====================
+  # 仓颉官方文档明确写：File 对象创建后必须调用 close()，否则资源泄露。
+  # 正则无法表达"缺少 close"，只能把需要人工确认的构造点标出来。
+
+  - id: cangjie-file-manual-open
+    languages: [cangjie]
+    message: 手动打开 File 对象，必须在所有路径上调用 close()，否则文件句柄泄露
+    severity: WARNING
+    metadata:
+      cwe: CWE-404
+      category: resource
+      confidence: MEDIUM
+      note: std.fs 的 File 实现 Resource，官方文档要求显式 close()
+    pattern-regex: |
+      (?m)^(?![ \t]*(//|\*|/\*)).*?\bFile\s*\(.*?OpenOption.*
+
+  - id: cangjie-file-truncate
+    languages: [cangjie]
+    message: 以截断模式打开文件（OpenOption.Create / OpenMode.Write），会清空已有内容
+    severity: WARNING
+    metadata:
+      cwe: CWE-377
+      category: resource
+      confidence: MEDIUM
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(OpenOption\.(Create|CreateOrTruncate|Truncate)|OpenMode\.Write)\b.*
+
+  - id: cangjie-recursive-remove
+    languages: [cangjie]
+    message: 递归删除目录，目标路径需确认不可被外部控制
+    severity: WARNING
+    metadata:
+      cwe: CWE-22
+      category: resource
+      confidence: MEDIUM
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(removeAll|removeDir|deleteRecursively|rmdir)\s*\(.*
+
+  - id: cangjie-file-delete-api
+    languages: [cangjie]
+    message: 删除文件/目录，参数来自变量时需确认路径可信
+    severity: INFO
+    metadata:
+      cwe: CWE-22
+      category: resource
+      confidence: LOW
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(File\.delete|removeIfExists)\s*\(.*
+
+  # ==================== 十一、密码学细节 ====================
+
+  - id: cangjie-weak-cipher
+    languages: [cangjie]
+    message: 使用已淘汰的分组/流密码（DES / 3DES / RC4 / SM1）
+    severity: ERROR
+    metadata:
+      cwe: CWE-327
+      category: crypto
+      confidence: HIGH
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(DESede|DES|RC4|SM1)\b.*
+
+  - id: cangjie-timing-compare
+    languages: [cangjie]
+    message: 用 == 比较哈希/签名/MAC，存在时序侧信道，应使用恒定时间比较
+    severity: WARNING
+    metadata:
+      cwe: CWE-208
+      category: crypto
+      confidence: MEDIUM
+      note: 仓颉 HMAC 提供 equal 做恒定时间比较
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(digest|hmac|hash|signature|sign)\w*\s*==.*$
+
+  - id: cangjie-weak-random
+    languages: [cangjie]
+    message: 使用普通随机数生成密钥/令牌/nonce，应改用密码学安全随机源
+    severity: WARNING
+    metadata:
+      cwe: CWE-338
+      category: crypto
+      confidence: LOW
+      note: 变量名可能出现在 Random 之前（let token = Random()），所以用 AND 组合两个条件
+    patterns:
+      - pattern-regex: |
+          (?m)^(?![ \t]*(//|\*|/\*)).*?\bRandom\s*\(.*
+      - pattern-regex: |
+          (?im)^.*?\b(token|key|nonce|salt|session|secret)\w*.*
+
+  # ==================== 十二、数据与配置 ====================
+
+  - id: cangjie-env-secret
+    languages: [cangjie]
+    message: 从环境变量读取敏感项后直接使用，注意日志与异常中不要回显
+    severity: INFO
+    metadata:
+      cwe: CWE-526
+      category: info-leak
+      confidence: LOW
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\bgetEnv\s*\(\s*"(?i:[^"]*(password|secret|token|key)[^"]*)".*
+
+  - id: cangjie-json-parse-untrusted
+    languages: [cangjie]
+    message: 解析外部 JSON/字节流，需确认反序列化目标类型与来源可信
+    severity: WARNING
+    metadata:
+      cwe: CWE-502
+      category: deserialization
+      confidence: MEDIUM
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(JsonValue\.fromStr|fromJson|parseJson|decodeFrom)\s*\(.*
+
+  - id: cangjie-sql-exec-concat
+    languages: [cangjie]
+    message: 数据库执行接口的 SQL 由拼接产生，存在注入风险
+    severity: ERROR
+    metadata:
+      cwe: CWE-89
+      category: injection
+      confidence: HIGH
+      note: 仓颉数据库接口在 std.database.sql
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(executeQuery|executeUpdate|rawQuery|execSql|query)\s*\([^)\n]*\+.*
+
+  - id: cangjie-wrapping-arith
+    languages: [cangjie]
+    message: 显式使用环绕算术，溢出会被静默丢弃，参与边界计算时需复核
+    severity: INFO
+    metadata:
+      cwe: CWE-190
+      category: memory-safety
+      confidence: MEDIUM
+      note: 仓颉默认开启溢出检查，wrapping* 是主动绕过
+    pattern-regex: |
+      (?m)^(?![ \t]*(//|\*|/\*)).*?\.\s*(wrappingAdd|wrappingSub|wrappingMul|wrappingDiv|wrappingShl|wrappingShr)\s*\(.*
+
+  - id: cangjie-log-user-input
+    languages: [cangjie]
+    message: 日志中拼接外部输入，可能被注入换行伪造日志条目
+    severity: INFO
+    metadata:
+      cwe: CWE-117
+      category: info-leak
+      confidence: LOW
+    pattern-regex: |
+      (?im)^(?![ \t]*(//|\*|/\*)).*?\b(println|log)\s*\([^)\n]*\+\s*(input|user|request|param|query|header)\w*.*
+

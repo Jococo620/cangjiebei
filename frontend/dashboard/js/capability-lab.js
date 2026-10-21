@@ -1,5 +1,6 @@
 import { api } from "./api-client.js";
 import { createGraphViewer } from "./graph-render.js";
+import { highlightFragment, langFromFilename } from "./code-highlight.js";
 
 const TERMINAL_RUN_STATES = new Set([
     "completed",
@@ -158,7 +159,11 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
     const codeRisk = query("#code-risk");
     const codeFindings = query("#code-findings");
     const codeSliceToggle = query("#code-slice");
+    const codeSliceDirection = query("#code-slice-direction");
     const codeGraphToggle = query("#code-graph");
+    const codeHighlight = query("#code-highlight");
+    const codeHighlightCode = codeHighlight ? codeHighlight.querySelector("code") : null;
+    const codeGutter = query("#code-gutter");
     const scanCritical = query("#scan-critical");
     const scanHigh = query("#scan-high");
     const scanMedium = query("#scan-medium");
@@ -523,6 +528,63 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
         }
     });
 
+    // ---- 代码高亮 ----
+    // 叠层方案：上层 textarea 负责编辑（文字透明、只留光标），
+    // 下层 pre 负责显示彩色文字。两边共享同一套字体与内边距，靠下面两个
+    // 同步函数保证滚动位置一致，否则一滚动就错位。
+    let highlightTimer = null;
+
+    function syncHighlightScroll() {
+        if (!codeHighlight || !codeContent) return;
+        codeHighlight.scrollTop = codeContent.scrollTop;
+        codeHighlight.scrollLeft = codeContent.scrollLeft;
+        // 行号只跟随垂直滚动；水平方向固定不动
+        if (codeGutter) codeGutter.scrollTop = codeContent.scrollTop;
+    }
+
+    function renderGutter() {
+        if (!codeGutter || !codeContent) return;
+        const text = codeContent.value;
+        // 空内容时也留一行，否则行号列会整个塌掉
+        const count = text ? text.split("\n").length : 1;
+        const numbers = [];
+        for (let i = 1; i <= count; i += 1) numbers.push(i);
+        codeGutter.textContent = numbers.join("\n");
+        // 行号列宽按位数走。用 px 而不是 ch：ch 取决于元素自身字号，
+        // 而 wrapper 的字号和行号列的等宽字号不一致，算出来会偏窄。
+        const digits = String(count).length;
+        const wrap = codeContent.closest(".code-editor-wrap");
+        if (wrap) {
+            wrap.style.setProperty(
+                "--gutter-w", `${Math.max(32, digits * 8 + 20)}px`,
+            );
+        }
+        codeGutter.scrollTop = codeContent.scrollTop;
+    }
+
+    function renderHighlight() {
+        if (!codeHighlightCode) return;
+        const filename = codeFilename.value.trim() || "sample.cj";
+        codeHighlightCode.replaceChildren(
+            highlightFragment(codeContent.value, langFromFilename(filename)),
+        );
+        renderGutter();
+        syncHighlightScroll();
+    }
+
+    function scheduleHighlight() {
+        if (highlightTimer) window.clearTimeout(highlightTimer);
+        highlightTimer = window.setTimeout(renderHighlight, 120);
+    }
+
+    if (codeContent && codeHighlightCode) {
+        codeContent.addEventListener("input", scheduleHighlight);
+        codeContent.addEventListener("scroll", syncHighlightScroll, { passive: true });
+        // 改文件名会改变推断出的语言，关键字表跟着换
+        codeFilename.addEventListener("input", scheduleHighlight);
+        renderHighlight();
+    }
+
     codeFile.addEventListener("change", async () => {
         const file = codeFile.files?.[0];
         if (!file) return;
@@ -535,6 +597,8 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
             codeContent.value = await file.text();
             codeFilename.value = file.name;
             codeFileLabel.textContent = `${file.name}，${Math.max(1, Math.round(file.size / 1024))} KB`;
+            // 程序化赋值不会触发 input 事件，得手动重绘高亮
+            renderHighlight();
             announce("本地代码文件已经读取");
         } catch {
             showToast("无法读取所选文件", "error");
@@ -621,10 +685,15 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
 
     function renderSliceBlock(slice) {
         if (!slice) return null;
-        const section = createSection("slice-result", "变量后向切片");
+        // 标题跟着实际方向走：前向说的是"影响哪些行"，别和后向混为一谈
+        const isForward = slice.direction === "Fwd";
+        const section = createSection(
+            "slice-result",
+            isForward ? "变量前向切片" : "变量后向切片",
+        );
 
         if (slice.status === "skipped") {
-            appendMutedRow(section, "本次未执行切片（勾选「变量后向切片」后重新扫描）");
+            appendMutedRow(section, "本次未执行切片（勾选「变量切片」后重新扫描）");
             return section;
         }
         if (slice.status !== "pass") {
@@ -753,7 +822,22 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
 
         // 1. 规则命中。没有命中不是提前结束：切片与图必须照常展示。
         if (ranking.length) {
-            ranking.slice(0, 50).forEach((finding) => {
+            // 高危排前面，免得要滚到底才看到真正要紧的
+            const ordered = [...ranking].sort(
+                (a, b) => severityScore(b) - severityScore(a),
+            );
+            const shown = ordered.slice(0, 50);
+
+            const listHead = document.createElement("div");
+            listHead.className = "finding-list-head";
+            listHead.textContent = `规则命中 ${ranking.length} 条${
+                ranking.length > shown.length ? `（按严重度排序，显示前 ${shown.length}）` : ""
+            }`;
+
+            const list = document.createElement("div");
+            list.className = "finding-items";
+
+            shown.forEach((finding) => {
                 const item = document.createElement("article");
                 item.className = "finding-item";
                 const body = document.createElement("div");
@@ -768,9 +852,59 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
                 level.className = "finding-severity";
                 level.textContent = `${severityLabel(score)} ${score || ""}`.trim();
                 body.append(title, detail);
+
+                // 数据来源与涉及变量：只对 injection / memory-safety / info-leak
+                // 这类与数据流有关的规则才有值（后端按 category 过滤过）
+                const originKind = finding.origin?.origin;
+                const originLabels = {
+                    "param-direct": "形参直达",
+                    "param-via": "经变量传入",
+                    internal: "仅内部赋值",
+                };
+                const originLabel = originLabels[originKind];
+                if (originLabel) {
+                    detail.append(" · ");
+                    const badge = document.createElement("span");
+                    badge.className = `origin-badge origin-${originKind}`;
+                    badge.textContent = originLabel;
+                    badge.title = finding.origin?.detail || "";
+                    detail.append(badge);
+                }
+
+                // 涉及的变量 + 它们在哪定义。直接给出"第几行的什么变量"，
+                // 比一个抽象的"来源"标签更值得看。
+                const defs = finding.origin?.var_defs || [];
+                if (defs.length) {
+                    const varNode = document.createElement("span");
+                    varNode.className = "finding-vars";
+                    varNode.textContent = `变量 ${
+                        defs
+                            .map((d) => (d.kind === "param"
+                                ? `${d.var}（形参）`
+                                : `${d.var}（第 ${d.line ?? "?"} 行）`))
+                            .join("、")
+                    }`;
+                    detail.append(" · ", varNode);
+                }
+                // 切片若覆盖到该变量，补一行"依赖哪些行"
+                const slices = finding.origin?.slices || [];
+                if (slices.length) {
+                    const picked = slices[0];
+                    const lines = picked.lines || [];
+                    const sliceNode = document.createElement("span");
+                    sliceNode.className = "finding-slice";
+                    sliceNode.textContent = ` · ${picked.var} 依赖 ${picked.line_count} 行：${
+                        lines.slice(0, 8).join(", ")
+                    }${lines.length > 8 ? " …" : ""}`;
+                    sliceNode.title = lines.join(", ");
+                    detail.append(sliceNode);
+                }
+
                 item.append(body, level);
-                codeFindings.append(item);
+                list.append(item);
             });
+
+            codeFindings.append(listHead, list);
         } else {
             const scanStage = stages.find((stage) => stage?.name === "code_scan");
             let titleText = "规则未命中";
@@ -780,9 +914,14 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
                 detailText = data?.recommendation
                     || "规则引擎不可用，本次结果不能作为安全判断依据。";
             } else if (data?.lang === "cangjie") {
-                // 这是最容易误判的一条：仓颉规则命中恒为 0，不能说成“没漏洞”
-                titleText = "规则引擎未覆盖仓颉";
-                detailText = "仓颉代码在规则集下命中恒为 0，这只代表「没扫到」，不代表「没有风险」。请以变量切片与依赖图复核。";
+                // 接入项目规则集后，仓颉不再是"规则集不覆盖"，而是"扫了但没命中"
+                const ruleInfo = data?.rule_source?.type === "project"
+                    ? `已用项目内置的 ${data.rule_source.rule_count} 条仓颉规则扫描`
+                    : "规则引擎未覆盖仓颉（项目规则集未加载）";
+                titleText = data?.rule_source?.type === "project"
+                    ? "未命中仓颉规则"
+                    : "规则引擎未覆盖仓颉";
+                detailText = `${ruleInfo}，未命中已知模式。这只代表「没扫到」，不代表「没有风险」。请以变量切片与依赖图复核。`;
             }
             codeFindings.append(createResultState(titleText, detailText));
         }
@@ -835,6 +974,7 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
         try {
             const data = await api.analyzeCode(content, filename, {
                 includeSlice: codeSliceToggle ? codeSliceToggle.checked : true,
+                sliceDirection: codeSliceDirection ? codeSliceDirection.value : "Bwd",
                 includeGraph: codeGraphToggle ? codeGraphToggle.checked : false,
             });
             renderCodeResult(data);

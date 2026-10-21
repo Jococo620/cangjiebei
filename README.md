@@ -115,7 +115,7 @@ python run.py
 
 | 服务 | 默认地址 | 说明 |
 |------|----------|------|
-| SymPas MCP | `http://localhost:6239` | 本组自研静态分析工具；通过 `SYMPAS_MCP_URL` 覆盖云端地址 |
+| SymPas MCP | `http://localhost:6240` | 本组自研静态分析工具；通过 `SYMPAS_MCP_URL` 覆盖云端地址 |
 | CTF MCP | `http://localhost:2267` | 本地 CTF 工具链 |
 | 仓颉引擎 | `http://127.0.0.1:2270` | 仓颉语言 DAG 规划引擎；运行时库目录可用 `CANGJIE_RUNTIME` 指定 |
 
@@ -147,7 +147,7 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 ### Q: 启动后提示端口占用？
-检查并释放占用的端口：7800（主服务）、2267（CTF MCP）、2270（仓颉引擎）、6239（SymPas MCP）。
+检查并释放占用的端口：7800（主服务）、2267（CTF MCP）、2270（仓颉引擎）、6240（SymPas MCP）。
 
 ### Q: 如何切换 LLM 提供商？
 编辑 `.nexus/llm_config.json` 文件修改 `provider` 字段，或在系统设置页面修改。

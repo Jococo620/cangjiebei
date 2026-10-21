@@ -1,11 +1,15 @@
 import json
 import logging
 import os
+import re
 import threading
 import time
 import uuid
 from collections import deque
 from typing import Any, Callable, Dict, List, Optional
+from urllib.parse import quote, unquote, urlsplit
+
+import requests
 
 from flask import Flask, Response, jsonify, request, stream_with_context
 from flask_cors import CORS
@@ -623,12 +627,19 @@ def create_app() -> Flask:
         return _LANG_BY_SUFFIX.get(ext, "c")
 
     def _retarget_filename(filename: str, lang: str) -> str:
-        """把文件名后缀换成目标语言的后缀。
+        """把文件名后缀换成目标语言的后缀，并清掉非 ASCII 字符。
 
         后端会同时看 filename 后缀与 lang 判语言，两者冲突时会失败，
         所以回退重试时必须一起改，只改 lang 不够。
+
+        为什么要清非 ASCII：SymPas 的 /artifacts 路由**不做 URL 解码**。
+        它生成的 svg_url 里中文文件名是 percent-encoded 的（%E6%A0%B7），
+        但查文件时按字面量去找，于是 404 ——实测 curl 直接请求那个 URL
+        也是 404，与我们这层代理无关。换成 ASCII 文件名（source.cj）后
+        URL 里不含 %，图就能正常取到。
         """
         stem = os.path.splitext(str(filename or "sample"))[0] or "sample"
+        stem = re.sub(r"[^A-Za-z0-9_-]+", "_", stem).strip("_") or "source"
         return stem + _EXT_BY_LANG.get(lang, ".txt")
 
     def _tool_state(resp: Any) -> str:
@@ -681,9 +692,17 @@ def create_app() -> Flask:
             }
 
         data = resp.get("data") if isinstance(resp.get("data"), dict) else {}
+        # 后向切片回答"这个变量来自哪"，前向切片回答"它会影响哪些行"。
+        # 两个字段名不同，取到哪个用哪个。
+        direction = "Bwd"
         raw = data.get("backward_slices")
         if not isinstance(raw, dict) or not raw:
-            return {"status": "empty", "reason": "no_slice", "vars": []}
+            fwd = data.get("forward_slices")
+            if isinstance(fwd, dict) and fwd:
+                raw, direction = fwd, "Fwd"
+        if not isinstance(raw, dict) or not raw:
+            return {"status": "empty", "reason": "no_slice", "vars": [],
+                    "direction": direction}
 
         vars_out: List[Dict[str, Any]] = []
         for key, per_file in raw.items():
@@ -706,16 +725,33 @@ def create_app() -> Flask:
                 })
 
         if not vars_out:
-            return {"status": "empty", "reason": "no_slice", "vars": []}
+            return {"status": "empty", "reason": "no_slice", "vars": [],
+                    "direction": direction}
 
         vars_out.sort(key=lambda item: (-item["line_count"], item["var"]))
         return {
             "status": "pass",
             "reason": None,
+            "direction": direction,
             "engine": data.get("tool") or resp.get("tool"),
             "version": data.get("version"),
             "vars": vars_out,
         }
+
+    def _proxy_svg(url: Optional[str]) -> Optional[str]:
+        """把 SymPas 的绝对 SVG 地址换成同源代理路径。
+
+        浏览器直连 SymPas 的 47.94.83.64:6240 会受本机代理/网络策略影响 ——
+        表现就是"在 MCP 控制台能看图，在我们的页面里却报加载失败"。
+        改成走本服务的 /threat/graph 之后，前端只跟 127.0.0.1:7800 打交道。
+        """
+        if not url:
+            return url
+        # 只编码会破坏 query 解析的两个字符。
+        # 不能用 quote(url, safe="")：SymPas 返回的地址里文件名已经 percent-encoded
+        # （中文文件名如 %E6%A0%B7），再整体 quote 会把 % 编码成 %25，
+        # 变成双重编码，上游按字面量找不到文件 → 502。
+        return "/threat/graph?url=" + url.replace("&", "%26").replace("#", "%23")
 
     def _extract_sympas_graph(resp: Any) -> Dict[str, Any]:
         """从 sympas_dep_graph 返回中提取图结构，并把 SVG 相对路径补成绝对地址。
@@ -775,7 +811,9 @@ def create_app() -> Flask:
                 "truncated": (
                     len(nodes) > MAX_GRAPH_NODES or len(edges) > MAX_GRAPH_EDGES
                 ),
-                "svg_url": artifact_svg.get(str(graph_type)) or fallback_svg or None,
+                "svg_url": _proxy_svg(
+                    artifact_svg.get(str(graph_type)) or fallback_svg
+                ),
             })
 
         if not graphs:
@@ -823,12 +861,97 @@ def create_app() -> Flask:
                 lines.append(f"  {edge.get('from')}->{edge.get('to')}")
         return "\n".join(lines)
 
+    # 项目内置规则集的读取缓存：按 mtime 失效，改规则文件不用重启服务
+    _rules_cache: Dict[str, Any] = {}
+
+    def _load_cangjie_rules() -> Optional[Dict[str, Any]]:
+        """读取项目自带的仓颉规则集（skills/cangjie_rules.yaml）。
+
+        后端 13 个规则包都不含仓颉规则，`code_scan` 默认的 default-safe
+        只有 C 系模式，所以仓颉命中恒为 0。这里把项目自己的 36 条规则
+        通过 `rules_yaml` 内联传进去。
+
+        路径可用 CANGJIE_RULES_PATH 覆盖；读不到或为空时返回 None，
+        调用方退回内置 default-safe，不会让整个扫描失败。
+        """
+        path = os.environ.get("CANGJIE_RULES_PATH", "").strip() or os.path.join(
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")),
+            "skills", "cangjie_rules.yaml",
+        )
+        try:
+            mtime = os.path.getmtime(path)
+        except OSError:
+            return None
+        if _rules_cache.get("path") == path and _rules_cache.get("mtime") == mtime:
+            return _rules_cache
+        try:
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read()
+        except OSError:
+            return None
+        if not text.strip():
+            return None
+        _rules_cache.update({
+            "path": path,
+            "mtime": mtime,
+            "text": text,
+            "count": text.count("- id: "),
+            "name": os.path.basename(path),
+        })
+        logger.info("[threat/analyze] loaded %s rules from %s",
+                    _rules_cache["count"], path)
+        return _rules_cache
+
+    @app.route("/threat/graph")
+    def threat_graph():
+        """代理 SymPas 的 SVG 产物，让浏览器只跟本服务同源通信。
+
+        为什么要代理：SymPas 在 47.94.83.64:6240，前端页面在 127.0.0.1:7800。
+        `<img>` 本来不受跨域限制，但只要本机挂了 HTTP 代理，浏览器对
+        47.94.83.64 的请求就可能被代理拦掉 —— 表现是 MCP 控制台能看、我们的
+        页面报"图加载失败"。同源代理能绕开这一层。
+
+        SSRF 防护：只允许代理到当前配置的 SymPas 主机，scheme + netloc 必须
+        完全一致，不做任何跳转跟随。
+        """
+        # 不要在这里再 unquote：Werkzeug 解析 query string 时已经解码过一次，
+        # 二次解码会破坏本身带 % 的地址。
+        raw = request.args.get("url", "").strip()
+        base = get_sympas_base_url().rstrip("/")
+        if not raw:
+            return jsonify({"error": "missing_url"}), 400
+
+        base_parts = urlsplit(base)
+        target = urlsplit(raw)
+        if (target.scheme, target.netloc) != (base_parts.scheme, base_parts.netloc):
+            logger.warning("[threat/graph] rejected url: %s", raw[:120])
+            return jsonify({"error": "url_not_allowed"}), 400
+
+        try:
+            upstream = requests.get(raw, timeout=20, allow_redirects=False)
+        except Exception as exc:
+            logger.warning("[threat/graph] fetch failed: %s", exc)
+            return jsonify({"error": "upstream_unreachable",
+                            "message": str(exc)}), 502
+        if upstream.status_code != 200:
+            return jsonify({"error": "upstream_error",
+                            "status": upstream.status_code}), 502
+
+        resp = Response(upstream.content, mimetype="image/svg+xml")
+        resp.headers["Cache-Control"] = "private, max-age=300"
+        return resp
+
     @app.route("/threat/analyze", methods=["POST"])
     def threat_analyze() -> Response:
         payload = request.json or {}
         content = payload.get("content")
         filename = payload.get("filename") or "code.py"
         include_slice = bool(payload.get("include_slice", True))
+        # 切片方向：Bwd 看"这个变量来自哪"，Fwd 看"它会影响哪些行"。
+        # 前后向的变量覆盖面不同，让用户按需切换。
+        slice_direction = str(payload.get("slice_direction") or "Bwd").strip()
+        if slice_direction not in ("Bwd", "Fwd"):
+            slice_direction = "Bwd"
         include_graph = bool(payload.get("include_graph", False))
         explicit_lang = bool(str(payload.get("lang") or "").strip())
         lang = str(payload.get("lang") or "").strip() or _infer_lang(filename)
@@ -842,12 +965,38 @@ def create_app() -> Flask:
         stages: List[Dict[str, Any]] = []
         scan: Dict[str, Any] = {}
         stage_start = time.time()
+
+        # 仓颉没有内置规则包，用项目自带的规则集通过 rules_yaml 内联传入。
+        # 其他语言继续走后端内置的 default-safe（那边已有对应语言的模式）。
+        rule_source: Dict[str, Any] = {"type": "builtin", "name": "default-safe"}
+        scan_payload: Dict[str, Any] = {
+            "code": content,
+            # 必须带 filename + lang：只传 code 时后端会存成 source.c，
+            # 仓颉代码按 C 解析会失败（capture_failed）。
+            "filename": _retarget_filename(filename, lang),
+            "lang": lang,
+        }
+        if lang == "cangjie":
+            project_rules = _load_cangjie_rules()
+            if project_rules:
+                scan_payload["rules_yaml"] = project_rules["text"]
+                rule_source = {
+                    "type": "project",
+                    "name": project_rules["name"],
+                    "rule_count": project_rules["count"],
+                }
+
         try:
-            scan = reg.execute_skill("code_scan", {"code": content})
+            scan = reg.execute_skill("code_scan", scan_payload)
         except Exception as exc:
             logger.warning("[threat/analyze] code_scan failed: %s", exc)
             scan = {"status": "error", "message": str(exc)}
         scan_state = _tool_state(scan)
+        used_rules = (
+            f"{rule_source['rule_count']} 条仓颉规则"
+            if rule_source["type"] == "project"
+            else "内置 default-safe"
+        )
 
         # 从 SymPas code_scan 结果中提取 findings（兼容 issues/findings/data.findings 等结构）
         findings: List[Dict[str, Any]] = []
@@ -871,14 +1020,17 @@ def create_app() -> Flask:
             "status": scan_state,
             "ms": int((time.time() - stage_start) * 1000),
             "note": (
-                f"命中 {len(findings)} 处"
+                f"{used_rules} · 命中 {len(findings)} 处"
                 if findings
-                else ("规则集未覆盖该语言，命中 0（不等于无风险）"
-                      if lang == "cangjie" else "命中 0 处")
+                else (f"{used_rules} · 命中 0 处（不等于无风险）"
+                      if lang == "cangjie" else f"{used_rules} · 命中 0 处")
             ),
         })
 
-        _sev_score = {"critical": 9.5, "high": 8.0, "medium": 5.0, "low": 2.0}
+        # semgrep 返回的级别是 ERROR / WARNING / INFO，和原来那套
+        # critical/high/medium/low 不是一回事；不补这三个键会全部落到默认 5.0。
+        _sev_score = {"critical": 9.5, "high": 8.0, "medium": 5.0, "low": 2.0,
+                      "error": 8.0, "warning": 5.0, "info": 2.0}
         _danger_hints = ("dangerous-copy", "overflow", "overrun", "bounded", "strcpy",
                          "strcat", "memcpy", "injection", "command", "shell",
                          "use-after-free", "uaf", "null")
@@ -892,6 +1044,230 @@ def create_app() -> Flask:
                 return 8.0
             return 5.0
 
+        # ---- 规则命中 × 函数签名：判定危险调用的数据来源 ----
+        # 后端三种图都做不了变量级污点，实测：
+        #   Ddg  是变量级图，但只建模"产生变量的语句"；execute()/rawQuery()/
+        #        println() 这类纯调用语句不在图里 —— 而它们正是要找的 sink
+        #   Sdg  有 sink 节点，但边只到「函数入口 → 语句」，(formal-in)%x 与
+        #        使用它的语句之间没有边
+        #   :6239 的 taint_traces 对仓颉 capture failed
+        # 所以这里做语句级 def-use 近似：解析函数签名拿到形参名，再看危险行
+        # 是否直接引用了形参，或者引用了"由形参赋值"的局部变量。
+        # 这是拿不到精确 IR 时的常规做法，判定边界严格按语句走，不做全文搜索。
+        _CJ_KEYWORDS = {
+            "package", "import", "public", "private", "protected", "internal",
+            "static", "open", "override", "abstract", "sealed", "mut", "unsafe",
+            "foreign", "macro", "operator", "func", "class", "struct", "enum",
+            "interface", "extend", "type", "var", "let", "const", "init", "main",
+            "if", "else", "while", "for", "in", "do", "match", "case", "return",
+            "break", "continue", "throw", "try", "catch", "finally", "spawn",
+            "synchronized", "where", "is", "as", "this", "super", "true", "false",
+            "not", "and", "or", "async", "await", "quote",
+        }
+
+        def _strip_literals(text: str) -> str:
+            """去掉字符串字面量与行注释，避免把字面量里的词当成标识符。"""
+            text = re.sub(r'"[^"\n]*"', '""', text)
+            text = re.sub(r"'[^'\n]*'", "''", text)
+            text = re.sub(r"//.*$", "", text)
+            return text
+
+        def _idents(text: str) -> set:
+            return set(re.findall(r"[A-Za-z_]\w*", _strip_literals(text)))
+
+        def _param_names(sig: str) -> List[str]:
+            """从 `a: Int64, b: String` 里提取参数名。"""
+            names: List[str] = []
+            for part in sig.split(","):
+                part = part.strip().lstrip("!")
+                if not part:
+                    continue
+                head = re.split(r"[:=]", part)[0].strip()
+                tokens = re.findall(r"[A-Za-z_]\w*", head)
+                if tokens:
+                    names.append(tokens[-1])
+            return names
+
+        def _scan_functions(lines: List[str]) -> List[Dict[str, Any]]:
+            """找出每个函数的名字、形参、行号范围（靠大括号配对算范围）。"""
+            found: List[Dict[str, Any]] = []
+            idx = 0
+            while idx < len(lines):
+                match = re.search(
+                    r"\bfunc\s+([A-Za-z_]\w*)\s*\(([^)]*)\)", lines[idx]
+                )
+                if not match:
+                    idx += 1
+                    continue
+                # foreign func 是外部声明，没有函数体。不跳过的话，
+                # 大括号配对会一路数到后面 class 的结束，把整个类体吞进来，
+                # 导致里面的语句全部被归到这个名字下。
+                if "foreign" in _strip_literals(lines[idx]):
+                    idx += 1
+                    continue
+                depth = 0
+                opened = False
+                end = idx
+                while end < len(lines):
+                    clean = _strip_literals(lines[end])
+                    depth += clean.count("{") - clean.count("}")
+                    if "{" in clean:
+                        opened = True
+                    if opened and depth <= 0:
+                        break
+                    end += 1
+                found.append({
+                    "name": match.group(1),
+                    "params": _param_names(match.group(2)),
+                    "start": idx + 1,
+                    "end": min(end + 1, len(lines)),
+                })
+                idx = end + 1
+            return found
+
+        def _local_taint(code_text: str, hits: List[Dict[str, Any]]) -> Dict[int, Dict[str, Any]]:
+            lines = code_text.split("\n")
+            funcs = _scan_functions(lines)
+            result: Dict[int, Dict[str, Any]] = {}
+
+            for item in hits:
+                raw_line = item.get("line")
+                if raw_line is None:
+                    raw_line = (item.get("start") or {}).get("line")
+                try:
+                    lineno = int(raw_line)
+                except (TypeError, ValueError):
+                    continue
+                if not 0 < lineno <= len(lines):
+                    continue
+
+                # 范围可能嵌套/重叠，取最内层的那个
+                enclosing = [
+                    f for f in funcs if f["start"] <= lineno <= f["end"]
+                ]
+                owner = min(
+                    enclosing, key=lambda f: f["end"] - f["start"]
+                ) if enclosing else None
+                if not owner:
+                    # 顶层声明（foreign func、全局 let 等）没有"数据来源"可言，
+                    # 标一个"未追到上游"纯属噪音，直接不标注。
+                    continue
+
+                params = set(owner["params"])
+                # 该函数内声明的局部变量，用来把"这行引用了哪些变量"限定在变量上，
+                # 避免把类型名、方法名也算进去
+                func_locals = set()
+                for cursor in range(owner["start"] - 1,
+                                    min(owner["end"], len(lines))):
+                    decl = re.match(
+                        r"\s*(?:public\s+|private\s+|protected\s+)?"
+                        r"(?:let|var)\s+([A-Za-z_]\w*)",
+                        _strip_literals(lines[cursor]),
+                    )
+                    if decl:
+                        func_locals.add(decl.group(1))
+                line_vars = sorted(
+                    _idents(lines[lineno - 1]) & (params | func_locals)
+                )
+                # 每个变量在哪定义：形参直接标出来，局部变量找到声明行。
+                # 切片阶段对 class 方法会回退、覆盖也不全，不如自己给定位准确。
+                var_defs = []
+                for name in line_vars:
+                    if name in params:
+                        var_defs.append({"var": name, "kind": "param"})
+                        continue
+                    decl_line = None
+                    for cursor in range(owner["start"] - 1,
+                                        min(owner["end"], len(lines))):
+                        if re.search(
+                            rf"\b(?:let|var)\s+{re.escape(name)}\b",
+                            _strip_literals(lines[cursor]),
+                        ):
+                            decl_line = cursor + 1
+                            break
+                    var_defs.append(
+                        {"var": name, "kind": "local", "line": decl_line}
+                    )
+                direct = _idents(lines[lineno - 1]) & params
+                if direct:
+                    result[lineno] = {
+                        "origin": "param-direct",
+                        "func": owner["name"],
+                        "vars": line_vars,
+                        "var_defs": var_defs,
+                        "detail": (
+                            f"{owner['name']} 的形参 "
+                            f"{', '.join(sorted(direct))} 直接进入该调用"
+                        ),
+                        "chain": [lineno],
+                    }
+                    continue
+
+                # 一跳：该行用到的局部变量，是否在某处被"含形参的表达式"赋过值
+                used = _idents(lines[lineno - 1]) - params - _CJ_KEYWORDS
+                via = None
+                for cursor in range(owner["start"], min(owner["end"], len(lines))):
+                    clean = _strip_literals(lines[cursor])
+                    assign = re.match(
+                        r"\s*(?:public\s+|private\s+|protected\s+)?"
+                        r"(?:let|var)\s+([A-Za-z_]\w*)",
+                        clean,
+                    ) or re.match(r"\s*([A-Za-z_]\w*)\s*=", clean)
+                    if not assign:
+                        continue
+                    target = assign.group(1)
+                    if target not in used:
+                        continue
+                    if _idents(clean[assign.end():]) & params:
+                        via = (target, cursor + 1)
+                        break
+
+                if via:
+                    result[lineno] = {
+                        "origin": "param-via",
+                        "func": owner["name"],
+                        "vars": line_vars,
+                        "var_defs": var_defs,
+                        "detail": (
+                            f"{via[0]}（第 {via[1]} 行赋值）来自形参，"
+                            f"再传进该调用"
+                        ),
+                        "chain": [via[1], lineno],
+                    }
+                else:
+                    result[lineno] = {
+                        "origin": "internal",
+                        "func": owner["name"],
+                        "vars": line_vars,
+                        "var_defs": var_defs,
+                        "detail": "该行及其一跳上游都没有引用函数形参",
+                        "chain": [lineno],
+                    }
+            return result
+
+        origin_index: Dict[int, Dict[str, Any]] = {}
+        if findings:
+            trace_start = time.time()
+            try:
+                origin_index = _local_taint(content, findings)
+            except Exception as exc:
+                logger.warning("[threat/analyze] local taint failed: %s", exc)
+            direct_cnt = sum(
+                1 for v in origin_index.values() if v["origin"] == "param-direct"
+            )
+            via_cnt = sum(
+                1 for v in origin_index.values() if v["origin"] == "param-via"
+            )
+            stages.append({
+                "name": "taint_trace",
+                "status": "pass" if origin_index else "empty",
+                "ms": int((time.time() - trace_start) * 1000),
+                "note": (
+                    f"形参直达 {direct_cnt} 条 · 经局部变量 {via_cnt} 条"
+                    if origin_index else "未取到可用信息"
+                ),
+            })
+
         ranking: List[Dict[str, Any]] = []
         scores: List[float] = []
         for f in findings:
@@ -901,52 +1277,123 @@ def create_app() -> Flask:
             line = f.get("line") if f.get("line") is not None else start.get("line")
             raw_sev = f.get("severity") if f.get("severity") is not None else f.get("cvss")
             score = _to_score(raw_sev, check_id)
+
+            # 交叉验证只对「数据流相关」的规则有意义：
+            # 注入类看外部输入能不能流进来，内存安全看拷进去的东西有没有校验，
+            # 信息泄露看敏感值从哪来。而弱哈希、ECB、硬编码凭据、权限过宽
+            # 这类是「用法/配置」问题，跟数据来源无关 —— 硬给它们贴
+            # "外部可控"只会制造噪音。
+            flow_categories = {"injection", "memory-safety", "info-leak"}
+            meta = extra.get("metadata") if isinstance(extra.get("metadata"), dict) else {}
+            category = str(meta.get("category") or "")
+            origin = None
+            if category in flow_categories:
+                try:
+                    origin = origin_index.get(int(line)) if line is not None else None
+                except (TypeError, ValueError):
+                    origin = None
+            if origin and origin.get("origin") == "internal" and score < 9.5:
+                score = max(2.0, round(score - 1.5, 1))
+
             scores.append(score)
             ranking.append({
                 "cwe": check_id,
                 "name": extra.get("message") or f.get("description") or f.get("name") or check_id,
                 "line": line,
                 "severity": score,
+                "category": category or None,
+                "origin": origin,
             })
 
         # ---- 阶段 2：程序切片 ----
         # 不设 findings 前置门：仓颉在 code_scan 下规则命中恒为 0，若以此为前提
         # 切片永远不会执行。切片本身只依赖源码，与是否命中规则无关。
         #
-        # 用 sympas_slice_table 而不是 sympas_slice：后者一进入 interprocedural
-        # 模式（有跨函数调用或 Array 参数）就只把切片表写进 raw_output 文本和
-        # artifact，data.backward_slices 留空，我们读到的永远是 empty。
-        # 实测同一个 test.cj：sympas_slice 出 0 条，sympas_slice_table 出 10 条。
-        # direction 只传 Bwd —— slice_table 的 Both 会把两个方向混进
-        # backward_slices 且丢掉 forward_slices。
-        def _run_slice_stage(use_lang: str, use_filename: str) -> Dict[str, Any]:
-            try:
-                resp = reg.execute_skill("sympas_slice_table", {
-                    "code": content,
-                    "filename": use_filename,
-                    "lang": use_lang,
-                    "direction": "Bwd",
-                })
-            except Exception as exc:
-                logger.warning("[threat/analyze] slice failed: %s", exc)
-                return {"status": "reject", "reason": "tool_error",
-                        "message": str(exc), "vars": []}
-            return _extract_sympas_slice(resp)
+        # 两个切片工具实测（同一份代码，只传 code+filename+lang）：
+        #
+        #   代码                        sympas_slice      sympas_slice_table
+        #   C/C++/Java/Python           有结果            恒空（空表，不是失败）
+        #   仓颉 常规代码                有结果            有结果（同一批变量）
+        #   仓颉 含负数字面量            500 capture       有结果
+        #   仓颉 class 内定义方法        500 no source     有结果（通常无可切变量）
+        #
+        # 仓颉那两个失败是后端缺陷，实测定位：
+        #   - 只要出现负数字面量（`-1`、`id2(-5)`、`let x = -1` 都算），
+        #     sympas_slice 就报 capture failed: the analyzer could not build
+        #   - class 里定义方法（`public func` 在 class 体内）报
+        #     no captured source matches the requested input paths
+        # 注意：这两条与"多函数""interprocedural""package 声明"都无关 ——
+        # 之前误判成那些，是因为当时的样例里恰好都有 -10。
+        #
+        # 所以统一走 sympas_slice 打头（它对 C 系是唯一能出结果的），
+        # 只在它失败或没切出东西时回退 sympas_slice_table。
+        # 不按语言硬编码分派：以后加语言不用改这里。
+        #
+        # 另注：slice_table 的设计意图是「给定 criteria（变量@函数）→ 切该变量」，
+        # 不传 criteria 时它对仓颉会回退成"切全部变量"，对 C 系不回退。
+        # 而 code_scan 的 finding 里只有字面文本（extra.metavars 的
+        # abstract_content），拿不到变量名/函数名，拼不出 criteria ——
+        # 所以走不了"先扫再按 finding 精确切"的路子。
+        def _run_slice_stage(use_lang: str, use_filename: str,
+                             direction: str = "Bwd") -> Dict[str, Any]:
+            base: Dict[str, Any] = {
+                "code": content,
+                "filename": use_filename,
+                "lang": use_lang,
+            }
+            # sympas_slice 只产出后向切片，也没有 direction 参数。
+            # 要前向切片就只能直接走 slice_table。
+            if direction != "Fwd":
+                try:
+                    resp = reg.execute_skill("sympas_slice", base)
+                except Exception as exc:
+                    logger.warning("[threat/analyze] sympas_slice failed: %s", exc)
+                    resp = {"status": "error", "message": str(exc)}
 
-        # 后端同时看 filename 后缀与 lang，两者冲突会失败，回退时一起换
-        effective_filename = filename
+                result = _extract_sympas_slice(resp)
+                if result["status"] == "pass" and result.get("vars"):
+                    return result
+            else:
+                result = {"status": "empty", "reason": "no_slice", "vars": []}
+
+            # 主工具没拿到切片（后端编译失败，或者用户要的是前向），
+            # 用切片表兜底。direction 只有 slice_table 认。
+            try:
+                resp2 = reg.execute_skill(
+                    "sympas_slice_table", {**base, "direction": direction}
+                )
+            except Exception as exc:
+                logger.warning("[threat/analyze] fallback slice_table failed: %s", exc)
+                return result
+
+            result2 = _extract_sympas_slice(resp2)
+            if result2["status"] == "pass" and result2.get("vars"):
+                if direction != "Fwd":
+                    result2["fallback_from"] = "sympas_slice"
+                logger.info(
+                    "[threat/analyze] slice via slice_table (%s, %d vars)",
+                    direction, len(result2["vars"]),
+                )
+                return result2
+            return result
+
+        # 后端同时看 filename 后缀与 lang，两者冲突会失败，回退时一起换。
+        # 这里必须走 _retarget_filename：它除了改后缀，还会把中文等非 ASCII
+        # 字符清掉 —— SymPas 的 /artifacts 路由不解 URL 编码，中文文件名会让
+        # 图产物 404（前端表现就是"图加载失败"）。
+        effective_filename = _retarget_filename(filename, lang)
 
         slice_result: Dict[str, Any]
         if include_slice:
             stage_start = time.time()
-            slice_result = _run_slice_stage(lang, effective_filename)
+            slice_result = _run_slice_stage(lang, effective_filename, slice_direction)
             slice_note = None
             # 前端默认文件名常是 sample.py，按后缀推断会误判成 python。
             # 仓颉是本项目主场景，失败时用 cangjie 重试一次（仅在 lang 非显式指定时）。
             if (slice_result["status"] != "pass"
                     and not explicit_lang and lang != "cangjie"):
                 retry_filename = _retarget_filename(filename, "cangjie")
-                retry = _run_slice_stage("cangjie", retry_filename)
+                retry = _run_slice_stage("cangjie", retry_filename, slice_direction)
                 if retry["status"] == "pass":
                     slice_result = retry
                     slice_note = f"按后缀推断为 {lang} 失败，已回退 cangjie（{retry_filename}）"
@@ -965,6 +1412,39 @@ def create_app() -> Flask:
             # 静默省略会让人以为这一步不存在。
             stages.append({"name": "slice", "status": "skipped",
                            "ms": 0, "note": "未请求"})
+
+        # ---- 把变量切片挂到对应的告警上 ----
+        # 切片阶段排在污点判定之后（那边只依赖源码），所以关联放在这里做。
+        # 告警条目里带上"这个变量依赖哪几行"，比一个"未追到上游"的标签有用得多。
+        if ranking and (slice_result.get("vars") or []):
+            by_func: Dict[str, List[Dict[str, Any]]] = {}
+            for var_item in slice_result["vars"]:
+                # 切片那边的函数名带类前缀（UserService.copyInput），
+                # 而这边解析出来的是短名（copyInput），统一按短名建索引
+                short = str(var_item.get("func") or "").rsplit(".", 1)[-1]
+                by_func.setdefault(short, []).append(var_item)
+            for entry in ranking:
+                origin = entry.get("origin")
+                if not isinstance(origin, dict):
+                    continue
+                owner = str(origin.get("func") or "")
+                wanted = set(origin.get("vars") or [])
+                if not wanted:
+                    continue
+                matched = [
+                    v for v in by_func.get(owner, [])
+                    if v.get("var") in wanted
+                ]
+                if matched:
+                    origin["slices"] = [
+                        {
+                            "var": v.get("var"),
+                            "lines": v.get("lines") or [],
+                            "line_count": v.get("line_count")
+                                           or len(v.get("lines") or []),
+                        }
+                        for v in matched[:3]
+                    ]
 
         # ---- 阶段 3：依赖图 ----
         graph_result: Dict[str, Any]
@@ -1020,10 +1500,16 @@ def create_app() -> Flask:
                 "请检查 SYMPAS_MCP_URL / SYMPAS_MCP_TOKEN 后重试。"
             )
         elif lang == "cangjie":
-            recommendation = (
-                "规则引擎未覆盖仓颉，命中数为 0 不代表无风险。"
-                "请以变量切片与控制流图为复核依据。"
-            )
+            if rule_source["type"] == "project":
+                recommendation = (
+                    f"已用项目内置的 {rule_source['rule_count']} 条仓颉规则扫描，未命中已知模式。"
+                    "这不代表无风险，请以变量切片与依赖图复核。"
+                )
+            else:
+                recommendation = (
+                    "规则引擎未覆盖仓颉（项目规则集未加载），命中数为 0 不代表无风险。"
+                    "请以变量切片与控制流图为复核依据。"
+                )
         else:
             recommendation = (
                 f"规则扫描已完成，未命中规则，综合风险 {label.upper()}。仍建议结合人工复核。"
@@ -1037,6 +1523,7 @@ def create_app() -> Flask:
             "slice": slice_result,
             "graph": graph_result,
             "stages": stages,
+            "rule_source": rule_source,
             "taint": None,
             "cwe": None,
             "sbfl": {

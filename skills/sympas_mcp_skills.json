@@ -615,7 +615,7 @@
   "code_scan": {
     "skill_id": "code_scan",
     "name": "Code Scan",
-    "description": "静态代码安全扫描",
+    "description": "静态代码安全扫描。默认用内置 default-safe 规则包（只有 C 系模式），仓颉需要同时传 filename / lang / rules_yaml 才能扫出结果。",
     "provider_type": "mcp_http",
     "endpoint": "{{SYMPAS_MCP_URL}}/tools/code_scan",
     "danger_level": "safe",
@@ -625,6 +625,26 @@
         "code": {
           "type": "string",
           "description": "代码内容"
+        },
+        "filename": {
+          "type": "string",
+          "description": "代码的虚拟文件名（含后缀），用于语言判定。不传会被存成 source.c，仓颉代码按 C 解析会失败"
+        },
+        "lang": {
+          "type": "string",
+          "description": "语言标识：cangjie / c / cpp / java / python"
+        },
+        "rules_yaml": {
+          "type": "string",
+          "description": "内联 Semgrep YAML 规则，传了就用它替代内置规则包。仓颉没有内置规则，必须靠这个传入自备规则"
+        },
+        "max_findings": {
+          "type": "integer",
+          "description": "最多返回的命中条数，默认 50"
+        },
+        "strict": {
+          "type": "boolean",
+          "description": "严格模式，默认 false"
         }
       },
       "required": [

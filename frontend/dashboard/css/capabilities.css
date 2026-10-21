@@ -561,6 +561,181 @@
     tab-size: 4;
 }
 
+/* ---- 代码高亮叠层 ----
+   下层 pre 画彩色文字，上层 textarea 文字透明、只留光标。
+   两者必须共用同一套字体/内边距/边框，否则会错位；
+   textarea 设了 wrap="off"，pre 用 white-space: pre，避免换行算法不一致。 */
+.code-editor-wrap {
+    position: relative;
+    /* 行号列宽，由 JS 按行数位数动态设置 */
+    --gutter-w: 44px;
+}
+
+/* 行号列：垂直跟代码一起滚，水平固定 */
+.code-gutter {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--gutter-w);
+    padding: 10px 8px 10px 0;
+    border-right: 1px solid var(--border);
+    background: var(--surface-subtle);
+    border-top-left-radius: var(--radius-control);
+    border-bottom-left-radius: var(--radius-control);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+    text-align: right;
+    white-space: pre;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+    /* pre 是 absolute + 不透明背景，会盖住行号列；把行号提到上层 */
+    z-index: 1;
+    /* 行号用等宽数字，避免 1 和 8 宽度不同导致抖动 */
+    font-variant-numeric: tabular-nums;
+}
+
+/* 代码层给行号让出位置。padding-left 写在各自块内，避免被简写覆盖 */
+.code-highlight {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    /* 与 textarea 的 padding / border 完全一致，边框用透明占位 */
+    padding: 10px 12px;
+    padding-left: calc(var(--gutter-w) + 12px);
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
+    overflow: hidden;
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+    tab-size: 4;
+    white-space: pre;
+    pointer-events: none;
+}
+
+.code-highlight code {
+    font: inherit;
+}
+
+.code-editor-wrap .code-editor {
+    position: relative;
+    display: block;
+    margin: 0;
+    padding-left: calc(var(--gutter-w) + 12px);
+    background: transparent;
+    /* 文字透明，彩色文字由下层 pre 提供；caret 仍可见 */
+    color: transparent;
+    caret-color: var(--text);
+}
+
+.code-editor-wrap .code-editor::selection {
+    background: rgb(36 91 199 / 0.25);
+}
+
+/* 文字透明后 placeholder 会跟着消失，单独给回颜色 */
+.code-editor-wrap .code-editor::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+}
+
+/* 数据来源标签：靠符号依赖追溯出来的上下文，比单纯的 severity 更有信息量 */
+.origin-badge {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border: 1px solid transparent;
+}
+
+/* 形参直接进入危险调用，最需要关注 */
+.origin-param-direct {
+    color: #b3261e;
+    background: rgb(179 38 30 / 0.1);
+    border-color: rgb(179 38 30 / 0.25);
+}
+
+/* 先赋给局部变量再传入，仍属外部可控 */
+.origin-param-via {
+    color: #a16207;
+    background: rgb(161 98 7 / 0.1);
+    border-color: rgb(161 98 7 / 0.25);
+}
+
+/* 只走内部赋值，风险低一档 */
+.origin-internal {
+    color: #166534;
+    background: rgb(22 101 52 / 0.1);
+    border-color: rgb(22 101 52 / 0.25);
+}
+
+.origin-unknown {
+    color: var(--text-muted);
+    background: var(--surface-subtle);
+    border-color: var(--border-strong);
+}
+
+/* 告警里附带的"变量"与"切片行"：直接给出要复核的位置，比抽象标签实用 */
+.finding-vars {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text);
+}
+
+.finding-slice {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    /* 行号列表可能很长，超出就省略，hover 看全量 */
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+}
+
+@media (prefers-color-scheme: dark) {
+    .origin-param-direct { color: #ff9a93; background: rgb(255 154 147 / 0.12); }
+    .origin-param-via { color: #f0c674; background: rgb(240 198 116 / 0.12); }
+    .origin-internal { color: #8ddb8d; background: rgb(141 219 141 / 0.12); }
+}
+
+[data-theme="dark"] .origin-param-direct { color: #ff9a93; background: rgb(255 154 147 / 0.12); }
+[data-theme="dark"] .origin-param-via { color: #f0c674; background: rgb(240 198 116 / 0.12); }
+[data-theme="dark"] .origin-internal { color: #8ddb8d; background: rgb(141 219 141 / 0.12); }
+
+/* 高亮配色。亮/暗主题各一套，避免在深色底上出现深色关键字 */
+.tok-keyword { color: #a626a4; }
+.tok-string  { color: #2f7d32; }
+.tok-comment { color: #8a94a6; font-style: italic; }
+.tok-number  { color: #b76b01; }
+.tok-function { color: #1c5fb0; }
+.tok-type    { color: #0f766e; }
+
+@media (prefers-color-scheme: dark) {
+    .tok-keyword { color: #d2a8ff; }
+    .tok-string  { color: #8ddb8d; }
+    .tok-comment { color: #7f8a9c; }
+    .tok-number  { color: #f0b26b; }
+    .tok-function { color: #79b8ff; }
+    .tok-type    { color: #67e8d5; }
+}
+
+/* 站点支持手动切主题时，用 data-theme 覆盖 */
+[data-theme="dark"] .tok-keyword { color: #d2a8ff; }
+[data-theme="dark"] .tok-string  { color: #8ddb8d; }
+[data-theme="dark"] .tok-number  { color: #f0b26b; }
+[data-theme="dark"] .tok-function { color: #79b8ff; }
+[data-theme="dark"] .tok-type    { color: #67e8d5; }
+
 .scan-metrics {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -591,18 +766,50 @@
     gap: 6px;
 }
 
+.finding-list-head {
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+/* 只有规则命中列表限高滚动。
+   注意不要复用 .finding-list —— 那是 #code-findings 自己的类，
+   套上去会把切片和依赖图一起卷进滚动区。 */
+.finding-items {
+    display: grid;
+    gap: 8px;
+    max-height: 460px;
+    overflow-y: auto;
+    padding-right: 8px;
+    overscroll-behavior: contain;
+}
+
+.finding-items::-webkit-scrollbar {
+    width: 8px;
+}
+
+.finding-items::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 4px;
+}
+
+.finding-items::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
 .finding-item {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 10px;
-    padding: 10px 14px;
+    padding: 9px 12px;
     border: 1px solid var(--border);
     border-radius: var(--radius-control);
     background: var(--surface);
 }
 
 .finding-item h4 {
-    font-size: 15px;
+    font-size: 14px;
 }
 
 .finding-item p {
@@ -695,6 +902,29 @@
     color: var(--text-muted);
     font-size: 12px;
     font-style: normal;
+}
+
+/* 切片方向选择：缩进一级，表示从属于上面的"变量切片"开关 */
+.code-option-sub {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: -4px 0 8px 26px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.code-option-sub label {
+    white-space: nowrap;
+}
+
+.code-option-sub select {
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
 }
 
 .code-meta {
