@@ -807,6 +807,26 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
                 level.className = "finding-severity";
                 level.textContent = `${severityLabel(score)} ${score || ""}`.trim();
                 body.append(title, detail);
+
+                // 数据来源标签：只对 injection / memory-safety / info-leak 这类
+                // 与数据流有关的规则才有值（后端按 category 过滤过）
+                const originKind = finding.origin?.origin;
+                const originLabels = {
+                    "formal-in": "外部可控",
+                    "function-local": "函数内来源",
+                    internal: "仅内部赋值",
+                    unknown: "未追到上游",
+                };
+                const originLabel = originLabels[originKind];
+                if (originLabel) {
+                    detail.append(" · ");
+                    const badge = document.createElement("span");
+                    badge.className = `origin-badge origin-${originKind}`;
+                    badge.textContent = originLabel;
+                    badge.title = finding.origin?.detail || "";
+                    detail.append(badge);
+                }
+
                 item.append(body, level);
                 codeFindings.append(item);
             });

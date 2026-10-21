@@ -612,6 +612,54 @@
     opacity: 1;
 }
 
+/* 数据来源标签：靠符号依赖追溯出来的上下文，比单纯的 severity 更有信息量 */
+.origin-badge {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border: 1px solid transparent;
+}
+
+/* 形参传播 → 外部可控，最需要关注 */
+.origin-formal-in {
+    color: #b3261e;
+    background: rgb(179 38 30 / 0.1);
+    border-color: rgb(179 38 30 / 0.25);
+}
+
+/* 函数入口来的，可能是形参也可能是局部初值，需要人看一眼 */
+.origin-function-local {
+    color: #a16207;
+    background: rgb(161 98 7 / 0.1);
+    border-color: rgb(161 98 7 / 0.25);
+}
+
+/* 只走内部赋值，风险低一档 */
+.origin-internal {
+    color: #166534;
+    background: rgb(22 101 52 / 0.1);
+    border-color: rgb(22 101 52 / 0.25);
+}
+
+.origin-unknown {
+    color: var(--text-muted);
+    background: var(--surface-subtle);
+    border-color: var(--border-strong);
+}
+
+@media (prefers-color-scheme: dark) {
+    .origin-formal-in { color: #ff9a93; background: rgb(255 154 147 / 0.12); }
+    .origin-function-local { color: #f0c674; background: rgb(240 198 116 / 0.12); }
+    .origin-internal { color: #8ddb8d; background: rgb(141 219 141 / 0.12); }
+}
+
+[data-theme="dark"] .origin-formal-in { color: #ff9a93; background: rgb(255 154 147 / 0.12); }
+[data-theme="dark"] .origin-function-local { color: #f0c674; background: rgb(240 198 116 / 0.12); }
+[data-theme="dark"] .origin-internal { color: #8ddb8d; background: rgb(141 219 141 / 0.12); }
+
 /* 高亮配色。亮/暗主题各一套，避免在深色底上出现深色关键字 */
 .tok-keyword { color: #a626a4; }
 .tok-string  { color: #2f7d32; }

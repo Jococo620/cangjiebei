@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import threading
 import time
 import uuid
@@ -945,7 +946,10 @@ def create_app() -> Flask:
             ),
         })
 
-        _sev_score = {"critical": 9.5, "high": 8.0, "medium": 5.0, "low": 2.0}
+        # semgrep 返回的级别是 ERROR / WARNING / INFO，和原来那套
+        # critical/high/medium/low 不是一回事；不补这三个键会全部落到默认 5.0。
+        _sev_score = {"critical": 9.5, "high": 8.0, "medium": 5.0, "low": 2.0,
+                      "error": 8.0, "warning": 5.0, "info": 2.0}
         _danger_hints = ("dangerous-copy", "overflow", "overrun", "bounded", "strcpy",
                          "strcat", "memcpy", "injection", "command", "shell",
                          "use-after-free", "uaf", "null")
@@ -959,6 +963,106 @@ def create_app() -> Flask:
                 return 8.0
             return 5.0
 
+        # ---- 规则命中 + 符号依赖交叉验证 ----
+        # code_scan 只告诉我们"这一行有问题"；ast_symbol_extractor 能给出
+        # 行级依赖边，形如
+        #   {"from": "[L15]: result = A(5, 6)", "to": "[L16]: println(result)"}
+        #   {"from": "ENTER main",              "to": "[L15]: result = A(5, 6)"}
+        # 把两者对上，就能判断命中行里的数据是不是来自函数形参：
+        #   来自形参 → 外部可控，分数保持
+        #   只来自函数内部 → 降一档
+        # 这一步失败不影响扫描主流程，只当补充证据。
+        def _trace_origins(deps: List[Any]) -> Dict[int, Dict[str, Any]]:
+            """把依赖边整理成「行号 → 数据来源」的索引。
+
+            从每行沿 from 方向回溯最多 3 跳：
+              - 碰到 formal-in   → 该变量是函数形参，外部可控
+              - 碰到 ENTER func  → 数据来自函数入口
+              - 碰到 [Ln]        → 继续往上追
+            """
+            incoming: Dict[int, List[str]] = {}
+            for edge in deps:
+                if not isinstance(edge, dict):
+                    continue
+                to_text = str(edge.get("to") or "")
+                src_text = str(edge.get("from") or "")
+                match = re.match(r"\[L(\d+)\]", to_text)
+                if match:
+                    incoming.setdefault(int(match.group(1)), []).append(src_text)
+
+            def walk(line: int) -> Dict[str, Any]:
+                seen = {line}
+                queue = [(line, 0)]
+                chain: List[int] = []
+                hit_entry = False
+                while queue:
+                    current, depth = queue.pop(0)
+                    if depth > 3:
+                        continue
+                    for src_text in incoming.get(current, []):
+                        if "formal-in" in src_text:
+                            return {"origin": "formal-in",
+                                    "detail": "数据来自函数形参，可被外部控制",
+                                    "chain": sorted(set(chain + [current]))[:6]}
+                        if src_text.startswith("ENTER "):
+                            hit_entry = True
+                            chain.append(current)
+                            continue
+                        up = re.match(r"\[L(\d+)\]", src_text)
+                        if up:
+                            prev = int(up.group(1))
+                            if prev not in seen:
+                                seen.add(prev)
+                                queue.append((prev, depth + 1))
+                if hit_entry:
+                    return {"origin": "function-local",
+                            "detail": "数据源自函数入口（形参或局部初值）",
+                            "chain": sorted(set(chain))[:6]}
+                if chain:
+                    return {"origin": "internal",
+                            "detail": "数据来自函数内部赋值，未见形参传播",
+                            "chain": sorted(set(chain))[:6]}
+                return {"origin": "unknown",
+                        "detail": "依赖图里没有该行的上游边",
+                        "chain": []}
+
+            return {line: walk(line) for line in incoming}
+
+        origin_index: Dict[int, Dict[str, Any]] = {}
+        if findings:
+            extract_start = time.time()
+            try:
+                symbols_resp = reg.execute_skill("ast_symbol_extractor", {
+                    "code": content,
+                    "filename": _retarget_filename(filename, lang),
+                    "lang": lang,
+                })
+                deps = None
+                if isinstance(symbols_resp, dict):
+                    data_block = symbols_resp.get("data")
+                    if isinstance(data_block, dict):
+                        deps = data_block.get("dependencies")
+                if isinstance(deps, list) and deps:
+                    origin_index = _trace_origins(deps)
+                    logger.info("[threat/analyze] traced origins for %d lines",
+                                len(origin_index))
+            except Exception as exc:
+                logger.warning("[threat/analyze] ast_symbol_extractor failed: %s", exc)
+            traced = [
+                origin_index.get(int(f.get("line") if f.get("line") is not None
+                                    else (f.get("start") or {}).get("line") or 0))
+                for f in findings
+            ]
+            stages.append({
+                "name": "ast_symbol",
+                "status": "pass" if origin_index else "empty",
+                "ms": int((time.time() - extract_start) * 1000),
+                "note": (
+                    f"追溯 {sum(1 for t in traced if t)}/{len(findings)} 条命中的数据来源"
+                    if origin_index else "未取到依赖边"
+                ),
+            })
+
         ranking: List[Dict[str, Any]] = []
         scores: List[float] = []
         for f in findings:
@@ -968,12 +1072,32 @@ def create_app() -> Flask:
             line = f.get("line") if f.get("line") is not None else start.get("line")
             raw_sev = f.get("severity") if f.get("severity") is not None else f.get("cvss")
             score = _to_score(raw_sev, check_id)
+
+            # 交叉验证只对「数据流相关」的规则有意义：
+            # 注入类看外部输入能不能流进来，内存安全看拷进去的东西有没有校验，
+            # 信息泄露看敏感值从哪来。而弱哈希、ECB、硬编码凭据、权限过宽
+            # 这类是「用法/配置」问题，跟数据来源无关 —— 硬给它们贴
+            # "外部可控"只会制造噪音。
+            flow_categories = {"injection", "memory-safety", "info-leak"}
+            meta = extra.get("metadata") if isinstance(extra.get("metadata"), dict) else {}
+            category = str(meta.get("category") or "")
+            origin = None
+            if category in flow_categories:
+                try:
+                    origin = origin_index.get(int(line)) if line is not None else None
+                except (TypeError, ValueError):
+                    origin = None
+            if origin and origin.get("origin") == "internal" and score < 9.5:
+                score = max(2.0, round(score - 1.5, 1))
+
             scores.append(score)
             ranking.append({
                 "cwe": check_id,
                 "name": extra.get("message") or f.get("description") or f.get("name") or check_id,
                 "line": line,
                 "severity": score,
+                "category": category or None,
+                "origin": origin,
             })
 
         # ---- 阶段 2：程序切片 ----
