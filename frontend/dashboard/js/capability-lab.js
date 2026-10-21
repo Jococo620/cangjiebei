@@ -162,6 +162,7 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
     const codeGraphToggle = query("#code-graph");
     const codeHighlight = query("#code-highlight");
     const codeHighlightCode = codeHighlight ? codeHighlight.querySelector("code") : null;
+    const codeGutter = query("#code-gutter");
     const scanCritical = query("#scan-critical");
     const scanHigh = query("#scan-high");
     const scanMedium = query("#scan-medium");
@@ -536,6 +537,28 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
         if (!codeHighlight || !codeContent) return;
         codeHighlight.scrollTop = codeContent.scrollTop;
         codeHighlight.scrollLeft = codeContent.scrollLeft;
+        // 行号只跟随垂直滚动；水平方向固定不动
+        if (codeGutter) codeGutter.scrollTop = codeContent.scrollTop;
+    }
+
+    function renderGutter() {
+        if (!codeGutter || !codeContent) return;
+        const text = codeContent.value;
+        // 空内容时也留一行，否则行号列会整个塌掉
+        const count = text ? text.split("\n").length : 1;
+        const numbers = [];
+        for (let i = 1; i <= count; i += 1) numbers.push(i);
+        codeGutter.textContent = numbers.join("\n");
+        // 行号列宽按位数走。用 px 而不是 ch：ch 取决于元素自身字号，
+        // 而 wrapper 的字号和行号列的等宽字号不一致，算出来会偏窄。
+        const digits = String(count).length;
+        const wrap = codeContent.closest(".code-editor-wrap");
+        if (wrap) {
+            wrap.style.setProperty(
+                "--gutter-w", `${Math.max(32, digits * 8 + 20)}px`,
+            );
+        }
+        codeGutter.scrollTop = codeContent.scrollTop;
     }
 
     function renderHighlight() {
@@ -544,6 +567,7 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
         codeHighlightCode.replaceChildren(
             highlightFragment(codeContent.value, langFromFilename(filename)),
         );
+        renderGutter();
         syncHighlightScroll();
     }
 

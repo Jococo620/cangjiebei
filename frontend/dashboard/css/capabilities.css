@@ -567,14 +567,45 @@
    textarea 设了 wrap="off"，pre 用 white-space: pre，避免换行算法不一致。 */
 .code-editor-wrap {
     position: relative;
+    /* 行号列宽，由 JS 按行数位数动态设置 */
+    --gutter-w: 44px;
 }
 
+/* 行号列：垂直跟代码一起滚，水平固定 */
+.code-gutter {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--gutter-w);
+    padding: 10px 8px 10px 0;
+    border-right: 1px solid var(--border);
+    background: var(--surface-subtle);
+    border-top-left-radius: var(--radius-control);
+    border-bottom-left-radius: var(--radius-control);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+    text-align: right;
+    white-space: pre;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+    /* pre 是 absolute + 不透明背景，会盖住行号列；把行号提到上层 */
+    z-index: 1;
+    /* 行号用等宽数字，避免 1 和 8 宽度不同导致抖动 */
+    font-variant-numeric: tabular-nums;
+}
+
+/* 代码层给行号让出位置。padding-left 写在各自块内，避免被简写覆盖 */
 .code-highlight {
     position: absolute;
     inset: 0;
     margin: 0;
     /* 与 textarea 的 padding / border 完全一致，边框用透明占位 */
     padding: 10px 12px;
+    padding-left: calc(var(--gutter-w) + 12px);
     border: 1px solid transparent;
     border-radius: var(--radius-control);
     overflow: hidden;
@@ -596,6 +627,7 @@
     position: relative;
     display: block;
     margin: 0;
+    padding-left: calc(var(--gutter-w) + 12px);
     background: transparent;
     /* 文字透明，彩色文字由下层 pre 提供；caret 仍可见 */
     color: transparent;
