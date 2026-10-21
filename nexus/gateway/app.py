@@ -11,7 +11,7 @@ from urllib.parse import quote, unquote, urlsplit
 
 import requests
 
-from flask import Flask, Response, jsonify, request, stream_with_context
+from flask import Flask, Response, jsonify, redirect, request, stream_with_context
 from flask_cors import CORS
 
 from nexus.adapters.sympas_mcp.skill_sync import sync_sympas_skills
@@ -4471,6 +4471,12 @@ def create_app() -> Flask:
             return make_error(str(exc), 500)
 
     @app.route("/")
+    def root_redirect():
+        # index.html 里资源全是相对路径（css/… js/… images/…），
+        # 根路径 "/" 直接返回它会导致浏览器把资源解析到 /js/app.js（404）。
+        # 统一重定向到 /frontend/dashboard/，让相对路径正确落到该目录下。
+        return redirect("/frontend/dashboard/", code=302)
+
     @app.route("/frontend/dashboard/")
     def dashboard() -> Response:
         index_path = os.path.join(frontend_dir, "dashboard", "index.html")
