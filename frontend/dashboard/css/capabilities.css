@@ -623,15 +623,15 @@
     border: 1px solid transparent;
 }
 
-/* 形参传播 → 外部可控，最需要关注 */
-.origin-formal-in {
+/* 形参直接进入危险调用，最需要关注 */
+.origin-param-direct {
     color: #b3261e;
     background: rgb(179 38 30 / 0.1);
     border-color: rgb(179 38 30 / 0.25);
 }
 
-/* 函数入口来的，可能是形参也可能是局部初值，需要人看一眼 */
-.origin-function-local {
+/* 先赋给局部变量再传入，仍属外部可控 */
+.origin-param-via {
     color: #a16207;
     background: rgb(161 98 7 / 0.1);
     border-color: rgb(161 98 7 / 0.25);
@@ -651,13 +651,13 @@
 }
 
 @media (prefers-color-scheme: dark) {
-    .origin-formal-in { color: #ff9a93; background: rgb(255 154 147 / 0.12); }
-    .origin-function-local { color: #f0c674; background: rgb(240 198 116 / 0.12); }
+    .origin-param-direct { color: #ff9a93; background: rgb(255 154 147 / 0.12); }
+    .origin-param-via { color: #f0c674; background: rgb(240 198 116 / 0.12); }
     .origin-internal { color: #8ddb8d; background: rgb(141 219 141 / 0.12); }
 }
 
-[data-theme="dark"] .origin-formal-in { color: #ff9a93; background: rgb(255 154 147 / 0.12); }
-[data-theme="dark"] .origin-function-local { color: #f0c674; background: rgb(240 198 116 / 0.12); }
+[data-theme="dark"] .origin-param-direct { color: #ff9a93; background: rgb(255 154 147 / 0.12); }
+[data-theme="dark"] .origin-param-via { color: #f0c674; background: rgb(240 198 116 / 0.12); }
 [data-theme="dark"] .origin-internal { color: #8ddb8d; background: rgb(141 219 141 / 0.12); }
 
 /* 高亮配色。亮/暗主题各一套，避免在深色底上出现深色关键字 */

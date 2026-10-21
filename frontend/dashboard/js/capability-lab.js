@@ -812,8 +812,8 @@ export function initCapabilityLab({ showToast, announce, onSelectLab }) {
                 // 与数据流有关的规则才有值（后端按 category 过滤过）
                 const originKind = finding.origin?.origin;
                 const originLabels = {
-                    "formal-in": "外部可控",
-                    "function-local": "函数内来源",
+                    "param-direct": "形参直达",
+                    "param-via": "经变量传入",
                     internal: "仅内部赋值",
                     unknown: "未追到上游",
                 };

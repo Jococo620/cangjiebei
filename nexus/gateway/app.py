@@ -963,103 +963,187 @@ def create_app() -> Flask:
                 return 8.0
             return 5.0
 
-        # ---- 规则命中 + 符号依赖交叉验证 ----
-        # code_scan 只告诉我们"这一行有问题"；ast_symbol_extractor 能给出
-        # 行级依赖边，形如
-        #   {"from": "[L15]: result = A(5, 6)", "to": "[L16]: println(result)"}
-        #   {"from": "ENTER main",              "to": "[L15]: result = A(5, 6)"}
-        # 把两者对上，就能判断命中行里的数据是不是来自函数形参：
-        #   来自形参 → 外部可控，分数保持
-        #   只来自函数内部 → 降一档
-        # 这一步失败不影响扫描主流程，只当补充证据。
-        def _trace_origins(deps: List[Any]) -> Dict[int, Dict[str, Any]]:
-            """把依赖边整理成「行号 → 数据来源」的索引。
+        # ---- 规则命中 × 函数签名：判定危险调用的数据来源 ----
+        # 后端三种图都做不了变量级污点，实测：
+        #   Ddg  是变量级图，但只建模"产生变量的语句"；execute()/rawQuery()/
+        #        println() 这类纯调用语句不在图里 —— 而它们正是要找的 sink
+        #   Sdg  有 sink 节点，但边只到「函数入口 → 语句」，(formal-in)%x 与
+        #        使用它的语句之间没有边
+        #   :6239 的 taint_traces 对仓颉 capture failed
+        # 所以这里做语句级 def-use 近似：解析函数签名拿到形参名，再看危险行
+        # 是否直接引用了形参，或者引用了"由形参赋值"的局部变量。
+        # 这是拿不到精确 IR 时的常规做法，判定边界严格按语句走，不做全文搜索。
+        _CJ_KEYWORDS = {
+            "package", "import", "public", "private", "protected", "internal",
+            "static", "open", "override", "abstract", "sealed", "mut", "unsafe",
+            "foreign", "macro", "operator", "func", "class", "struct", "enum",
+            "interface", "extend", "type", "var", "let", "const", "init", "main",
+            "if", "else", "while", "for", "in", "do", "match", "case", "return",
+            "break", "continue", "throw", "try", "catch", "finally", "spawn",
+            "synchronized", "where", "is", "as", "this", "super", "true", "false",
+            "not", "and", "or", "async", "await", "quote",
+        }
 
-            从每行沿 from 方向回溯最多 3 跳：
-              - 碰到 formal-in   → 该变量是函数形参，外部可控
-              - 碰到 ENTER func  → 数据来自函数入口
-              - 碰到 [Ln]        → 继续往上追
-            """
-            incoming: Dict[int, List[str]] = {}
-            for edge in deps:
-                if not isinstance(edge, dict):
+        def _strip_literals(text: str) -> str:
+            """去掉字符串字面量与行注释，避免把字面量里的词当成标识符。"""
+            text = re.sub(r'"[^"\n]*"', '""', text)
+            text = re.sub(r"'[^'\n]*'", "''", text)
+            text = re.sub(r"//.*$", "", text)
+            return text
+
+        def _idents(text: str) -> set:
+            return set(re.findall(r"[A-Za-z_]\w*", _strip_literals(text)))
+
+        def _param_names(sig: str) -> List[str]:
+            """从 `a: Int64, b: String` 里提取参数名。"""
+            names: List[str] = []
+            for part in sig.split(","):
+                part = part.strip().lstrip("!")
+                if not part:
                     continue
-                to_text = str(edge.get("to") or "")
-                src_text = str(edge.get("from") or "")
-                match = re.match(r"\[L(\d+)\]", to_text)
-                if match:
-                    incoming.setdefault(int(match.group(1)), []).append(src_text)
+                head = re.split(r"[:=]", part)[0].strip()
+                tokens = re.findall(r"[A-Za-z_]\w*", head)
+                if tokens:
+                    names.append(tokens[-1])
+            return names
 
-            def walk(line: int) -> Dict[str, Any]:
-                seen = {line}
-                queue = [(line, 0)]
-                chain: List[int] = []
-                hit_entry = False
-                while queue:
-                    current, depth = queue.pop(0)
-                    if depth > 3:
+        def _scan_functions(lines: List[str]) -> List[Dict[str, Any]]:
+            """找出每个函数的名字、形参、行号范围（靠大括号配对算范围）。"""
+            found: List[Dict[str, Any]] = []
+            idx = 0
+            while idx < len(lines):
+                match = re.search(
+                    r"\bfunc\s+([A-Za-z_]\w*)\s*\(([^)]*)\)", lines[idx]
+                )
+                if not match:
+                    idx += 1
+                    continue
+                # foreign func 是外部声明，没有函数体。不跳过的话，
+                # 大括号配对会一路数到后面 class 的结束，把整个类体吞进来，
+                # 导致里面的语句全部被归到这个名字下。
+                if "foreign" in _strip_literals(lines[idx]):
+                    idx += 1
+                    continue
+                depth = 0
+                opened = False
+                end = idx
+                while end < len(lines):
+                    clean = _strip_literals(lines[end])
+                    depth += clean.count("{") - clean.count("}")
+                    if "{" in clean:
+                        opened = True
+                    if opened and depth <= 0:
+                        break
+                    end += 1
+                found.append({
+                    "name": match.group(1),
+                    "params": _param_names(match.group(2)),
+                    "start": idx + 1,
+                    "end": min(end + 1, len(lines)),
+                })
+                idx = end + 1
+            return found
+
+        def _local_taint(code_text: str, hits: List[Dict[str, Any]]) -> Dict[int, Dict[str, Any]]:
+            lines = code_text.split("\n")
+            funcs = _scan_functions(lines)
+            result: Dict[int, Dict[str, Any]] = {}
+
+            for item in hits:
+                raw_line = item.get("line")
+                if raw_line is None:
+                    raw_line = (item.get("start") or {}).get("line")
+                try:
+                    lineno = int(raw_line)
+                except (TypeError, ValueError):
+                    continue
+                if not 0 < lineno <= len(lines):
+                    continue
+
+                # 范围可能嵌套/重叠，取最内层的那个
+                enclosing = [
+                    f for f in funcs if f["start"] <= lineno <= f["end"]
+                ]
+                owner = min(
+                    enclosing, key=lambda f: f["end"] - f["start"]
+                ) if enclosing else None
+                if not owner:
+                    result[lineno] = {
+                        "origin": "unknown",
+                        "detail": "不在任何函数体内（顶层声明）",
+                        "chain": [],
+                    }
+                    continue
+
+                params = set(owner["params"])
+                direct = _idents(lines[lineno - 1]) & params
+                if direct:
+                    result[lineno] = {
+                        "origin": "param-direct",
+                        "detail": (
+                            f"{owner['name']} 的形参 "
+                            f"{', '.join(sorted(direct))} 直接进入该调用"
+                        ),
+                        "chain": [lineno],
+                    }
+                    continue
+
+                # 一跳：该行用到的局部变量，是否在某处被"含形参的表达式"赋过值
+                used = _idents(lines[lineno - 1]) - params - _CJ_KEYWORDS
+                via = None
+                for cursor in range(owner["start"], min(owner["end"], len(lines))):
+                    clean = _strip_literals(lines[cursor])
+                    assign = re.match(
+                        r"\s*(?:public\s+|private\s+|protected\s+)?"
+                        r"(?:let|var)\s+([A-Za-z_]\w*)",
+                        clean,
+                    ) or re.match(r"\s*([A-Za-z_]\w*)\s*=", clean)
+                    if not assign:
                         continue
-                    for src_text in incoming.get(current, []):
-                        if "formal-in" in src_text:
-                            return {"origin": "formal-in",
-                                    "detail": "数据来自函数形参，可被外部控制",
-                                    "chain": sorted(set(chain + [current]))[:6]}
-                        if src_text.startswith("ENTER "):
-                            hit_entry = True
-                            chain.append(current)
-                            continue
-                        up = re.match(r"\[L(\d+)\]", src_text)
-                        if up:
-                            prev = int(up.group(1))
-                            if prev not in seen:
-                                seen.add(prev)
-                                queue.append((prev, depth + 1))
-                if hit_entry:
-                    return {"origin": "function-local",
-                            "detail": "数据源自函数入口（形参或局部初值）",
-                            "chain": sorted(set(chain))[:6]}
-                if chain:
-                    return {"origin": "internal",
-                            "detail": "数据来自函数内部赋值，未见形参传播",
-                            "chain": sorted(set(chain))[:6]}
-                return {"origin": "unknown",
-                        "detail": "依赖图里没有该行的上游边",
-                        "chain": []}
+                    target = assign.group(1)
+                    if target not in used:
+                        continue
+                    if _idents(clean[assign.end():]) & params:
+                        via = (target, cursor + 1)
+                        break
 
-            return {line: walk(line) for line in incoming}
+                if via:
+                    result[lineno] = {
+                        "origin": "param-via",
+                        "detail": (
+                            f"{via[0]}（第 {via[1]} 行赋值）来自形参，"
+                            f"再传进该调用"
+                        ),
+                        "chain": [via[1], lineno],
+                    }
+                else:
+                    result[lineno] = {
+                        "origin": "internal",
+                        "detail": "该行及其一跳上游都没有引用函数形参",
+                        "chain": [lineno],
+                    }
+            return result
 
         origin_index: Dict[int, Dict[str, Any]] = {}
         if findings:
-            extract_start = time.time()
+            trace_start = time.time()
             try:
-                symbols_resp = reg.execute_skill("ast_symbol_extractor", {
-                    "code": content,
-                    "filename": _retarget_filename(filename, lang),
-                    "lang": lang,
-                })
-                deps = None
-                if isinstance(symbols_resp, dict):
-                    data_block = symbols_resp.get("data")
-                    if isinstance(data_block, dict):
-                        deps = data_block.get("dependencies")
-                if isinstance(deps, list) and deps:
-                    origin_index = _trace_origins(deps)
-                    logger.info("[threat/analyze] traced origins for %d lines",
-                                len(origin_index))
+                origin_index = _local_taint(content, findings)
             except Exception as exc:
-                logger.warning("[threat/analyze] ast_symbol_extractor failed: %s", exc)
-            traced = [
-                origin_index.get(int(f.get("line") if f.get("line") is not None
-                                    else (f.get("start") or {}).get("line") or 0))
-                for f in findings
-            ]
+                logger.warning("[threat/analyze] local taint failed: %s", exc)
+            direct_cnt = sum(
+                1 for v in origin_index.values() if v["origin"] == "param-direct"
+            )
+            via_cnt = sum(
+                1 for v in origin_index.values() if v["origin"] == "param-via"
+            )
             stages.append({
-                "name": "ast_symbol",
+                "name": "taint_trace",
                 "status": "pass" if origin_index else "empty",
-                "ms": int((time.time() - extract_start) * 1000),
+                "ms": int((time.time() - trace_start) * 1000),
                 "note": (
-                    f"追溯 {sum(1 for t in traced if t)}/{len(findings)} 条命中的数据来源"
-                    if origin_index else "未取到依赖边"
+                    f"形参直达 {direct_cnt} 条 · 经局部变量 {via_cnt} 条"
+                    if origin_index else "未取到可用信息"
                 ),
             })
 
